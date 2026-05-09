@@ -177,7 +177,7 @@ null
 | `rhino.command_history` | `{ "tail": 50 }` | Rhino history console text を取得する |
 | `rhino.clear_command_history` | `null` | Rhino history console buffer を消去する |
 | `rhino.list_commands` | `null` または `{ "pattern": "Box", "include_unloaded": false }` | Rhino に登録済みのコマンド名一覧を返す。AI agent のコマンド発見用 |
-| `rhino.probe_command` | `{ "name": "Box" }` | コマンドを `! _-{Name} _Cancel` で起動・即時中断し、最初の Get プロンプト（option labels 込み）を `RhinoApp.CommandPrompt` から捕獲して返す。option short code は `(D)` `(P)` 等 ASCII 安定で `_D` `_P` としてそのまま渡せる |
+| `rhino.probe_command` | `{ "name": "Box" }` | コマンドを `! _-{Name} _Cancel × 5` で起動・即時中断し（300ms 経過時には background thread から `RhinoApp.SendKeystrokes("")` で Esc も送出）、最初の Get プロンプトを `RhinoApp.CommandPrompt` から、Write/WriteLine 出力を `RhinoApp.CapturedCommandWindowStrings` から捕獲して返す。option short code は `(D)` `(P)` 等 ASCII 安定で `_D` `_P` としてそのまま渡せる |
 
 ## 4. プラグイン固有メソッド命名規約
 
