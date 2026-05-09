@@ -35,5 +35,8 @@ MinimalPlugin rhino-cli server listening on 127.0.0.1:50099
 rhino-cli ping --port 50099
 rhino-cli call minimal.hello --port 50099
 rhino-cli call minimal.echo '{"value":42}' --port 50099
+rhino-cli run-script "_Zoom _Extents" --port 50099
+rhino-cli history --tail 20 --port 50099
+rhino-cli history --clear --port 50099
 rhino-cli shutdown
 ```

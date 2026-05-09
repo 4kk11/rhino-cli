@@ -16,15 +16,21 @@ public sealed class MinimalPlugin : PlugIn
     {
         try
         {
+            RhinoApp.CommandWindowCaptureEnabled = true;
             var registry = new HandlerRegistry("MinimalPlugin", Port);
             registry.Register("minimal.hello", new HelloHandler());
             registry.Register("minimal.echo", new EchoHandler());
+            registry.Register("rhino.run_script", new RunScriptHandler());
+            registry.Register("rhino.command_history", new CommandHistoryHandler());
+            registry.Register("rhino.clear_command_history", new ClearCommandHistoryHandler());
 
             _server = new TcpServer(Port, registry, "MinimalPlugin", InvokeOnUiThread);
             _server.OnError += message => RhinoApp.WriteLine($"MinimalPlugin rhino-cli: {message}");
             _server.Start();
 
-            RhinoApp.WriteLine($"MinimalPlugin rhino-cli server listening on 127.0.0.1:{_server.ActualPort}");
+            var message = $"MinimalPlugin rhino-cli server listening on 127.0.0.1:{_server.ActualPort}";
+            RhinoCliHistoryBuffer.Append(message);
+            RhinoApp.WriteLine(message);
             return LoadReturnCode.Success;
         }
         catch (Exception ex)

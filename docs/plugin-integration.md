@@ -144,6 +144,8 @@ rhino-cli wait-ready --port 50063 --timeout 30
 rhino-cli ping --port 50063 --verbose
 rhino-cli list-methods --port 50063
 rhino-cli call myplugin.do_thing '{}' --port 50063 --pretty
+rhino-cli run-script "_Zoom _Extents" --port 50063
+rhino-cli history --tail 50 --port 50063
 rhino-cli shutdown
 ```
 
@@ -154,3 +156,4 @@ rhino-cli shutdown
 - Keep handlers short. Long handlers block Rhino's UI thread.
 - For long-running workflows, return a job id and expose a separate status method.
 - `launch` and `shutdown` currently automate Rhino on macOS with `open` and AppleScript.
+- `run-script` and `history` require the plugin to register `rhino.run_script`, `rhino.command_history`, and `rhino.clear_command_history`. `examples/MinimalPlugin` provides reference handlers.

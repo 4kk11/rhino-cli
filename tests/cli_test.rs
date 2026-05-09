@@ -191,3 +191,110 @@ fn call_raw_still_exits_with_code_3_on_rpc_error() {
         .stderr(predicate::str::contains("\"code\":-32601"));
     handle.join().unwrap();
 }
+
+#[test]
+fn run_script_calls_rhino_run_script() {
+    let (port, handle) = spawn_rpc_server(|request| {
+        assert_eq!(request["method"], "rhino.run_script");
+        assert_eq!(
+            request["params"],
+            json!({
+                "script": "_SelNone",
+                "echo": true,
+                "mru_display_string": "Select none"
+            })
+        );
+        json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {"status": "ok", "success": true}
+        })
+    });
+
+    bin()
+        .args([
+            "run-script",
+            "_SelNone",
+            "--echo",
+            "--mru",
+            "Select none",
+            "--port",
+            &port.to_string(),
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"success\":true"));
+    handle.join().unwrap();
+}
+
+#[test]
+fn run_script_can_fail_on_false_result() {
+    let (port, handle) = spawn_rpc_server(|request| {
+        assert_eq!(request["method"], "rhino.run_script");
+        json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {"status": "failed", "success": false}
+        })
+    });
+
+    bin()
+        .args([
+            "run-script",
+            "_SelNone",
+            "--fail-on-false",
+            "--port",
+            &port.to_string(),
+        ])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("\"success\":false"))
+        .stderr(predicate::str::contains("success=false"));
+    handle.join().unwrap();
+}
+
+#[test]
+fn history_prints_text_by_default() {
+    let (port, handle) = spawn_rpc_server(|request| {
+        assert_eq!(request["method"], "rhino.command_history");
+        assert_eq!(request["params"], json!({"tail": 2}));
+        json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {
+                "status": "ok",
+                "text": "line one\nline two",
+                "line_count": 2,
+                "total_line_count": 10,
+                "truncated": true
+            }
+        })
+    });
+
+    bin()
+        .args(["history", "--tail", "2", "--port", &port.to_string()])
+        .assert()
+        .success()
+        .stdout("line one\nline two\n");
+    handle.join().unwrap();
+}
+
+#[test]
+fn history_clear_calls_clear_method() {
+    let (port, handle) = spawn_rpc_server(|request| {
+        assert_eq!(request["method"], "rhino.clear_command_history");
+        assert!(request["params"].is_null());
+        json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {"status": "ok"}
+        })
+    });
+
+    bin()
+        .args(["history", "--clear", "--port", &port.to_string()])
+        .assert()
+        .success()
+        .stdout("");
+    handle.join().unwrap();
+}

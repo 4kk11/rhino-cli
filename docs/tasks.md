@@ -292,3 +292,4 @@ Phase 6 で初めて両者が出会う。
 | 2026-05-09 | 7-8 | MinimalPlugin build、plugin integration docs、cargo install 確認 |
 | 2026-05-09 | extra | MinimalPlugin PostBuild コピー、Rhino launch/shutdown CLI 追加 |
 | 2026-05-09 | 7 | `rhino-cli launch --port 50099` → `call minimal.hello` → `shutdown` 実機確認 |
+| 2026-05-09 | extra | Rhino run-script/history CLI と MinimalPlugin handlers 追加 |

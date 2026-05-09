@@ -2,6 +2,7 @@ pub mod call;
 pub mod list_methods;
 pub mod ping;
 pub mod rhino;
+pub mod rhino_rpc;
 pub mod wait_ready;
 
 use std::time::Duration;

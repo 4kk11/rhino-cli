@@ -183,9 +183,10 @@ rhino-cli/
 - 形式: `<namespace>.<method>` (snake_case)
 - `system.*`: 接続・運用 (`ping`, `version`)
 - `rpc.*`: イントロスペクション (`list_methods`, `list_plugins`)
+- `rhino.*`: Rhino ホスト操作 (`run_script`, `command_history`)
 - `<plugin>.*`: 各プラグイン固有 (例: `geoml.durability_test`)
 
-namespace 衝突回避はプラグイン作者の責務。`system` / `rpc` は予約。
+namespace 衝突回避はプラグイン作者の責務。`system` / `rpc` / `rhino` は予約。
 
 ---
 
@@ -275,6 +276,23 @@ rhino-cli shutdown [--app "Rhino 8"] [--timeout 30]
 ```
 
 macOS の AppleScript 経由で Rhino に終了を依頼し、プロセス終了まで待つ。保存確認ダイアログが残る場合はタイムアウトする。
+
+#### 4.2.7 `run-script`
+
+```
+rhino-cli run-script <SCRIPT> [--echo] [--mru <TEXT>] [--fail-on-false]
+```
+
+プラグイン側の `rhino.run_script` を呼び、Rhino UI スレッド上で `RhinoApp.RunScript` を実行する。`SCRIPT` は Rhino コマンドラインに渡す script 文字列。macOS の Rhino では script が command history に投入されても `RunScript` が `false` を返すケースがあるため、既定では結果 JSON を表示して終了コード 0 とする。厳密に false を失敗扱いしたい場合だけ `--fail-on-false` を使う。
+
+#### 4.2.8 `history`
+
+```
+rhino-cli history [--tail <N>] [--json]
+rhino-cli history --clear
+```
+
+プラグイン側の `rhino.command_history` / `rhino.clear_command_history` を呼ぶ。既定では command history のテキストだけを stdout に出す。`--json` または `--pretty` で line count や truncation 情報を含む JSON を出す。
 
 ### 4.3 終了コード
 

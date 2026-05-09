@@ -7,6 +7,7 @@ use rhino_cli::client::{
 };
 use rhino_cli::commands::call::CallArgs;
 use rhino_cli::commands::rhino::{LaunchArgs, ShutdownArgs};
+use rhino_cli::commands::rhino_rpc::{HistoryArgs, RunScriptArgs};
 use rhino_cli::commands::CommandContext;
 use rhino_cli::error::{CliError, Result};
 use serde_json::json;
@@ -59,6 +60,32 @@ enum Commands {
     },
     /// Wait until system.ping succeeds.
     WaitReady,
+    /// Run a Rhino command script through the plugin.
+    RunScript {
+        /// Rhino command script, for example "_Zoom _Extents".
+        script: String,
+        /// Echo the script in Rhino's command UI.
+        #[arg(long)]
+        echo: bool,
+        /// Optional MRU display string for RhinoApp.RunScript.
+        #[arg(long)]
+        mru: Option<String>,
+        /// Exit non-zero when RhinoApp.RunScript returns false.
+        #[arg(long)]
+        fail_on_false: bool,
+    },
+    /// Print or clear Rhino command history.
+    History {
+        /// Print only the last N history lines.
+        #[arg(long)]
+        tail: Option<u32>,
+        /// Clear Rhino command history instead of printing it.
+        #[arg(long)]
+        clear: bool,
+        /// Print the full JSON result.
+        #[arg(long)]
+        json: bool,
+    },
     /// Launch Rhino and wait until the plugin answers system.ping.
     Launch {
         /// Rhino application name.
@@ -123,6 +150,23 @@ fn run(cli: Cli) -> Result<()> {
         Commands::WaitReady => {
             let ready_timeout = Duration::from_secs(cli.timeout.unwrap_or(30));
             rhino_cli::commands::wait_ready::run(&ctx, ready_timeout)
+        }
+        Commands::RunScript {
+            script,
+            echo,
+            mru,
+            fail_on_false,
+        } => rhino_cli::commands::rhino_rpc::run_script(
+            &ctx,
+            RunScriptArgs {
+                script,
+                echo,
+                mru_display_string: mru,
+                fail_on_false,
+            },
+        ),
+        Commands::History { tail, clear, json } => {
+            rhino_cli::commands::rhino_rpc::history(&ctx, HistoryArgs { tail, clear, json })
         }
         Commands::Launch {
             app,

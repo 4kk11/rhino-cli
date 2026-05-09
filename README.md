@@ -65,10 +65,14 @@ rhino-cli wait-ready --port 50061 --timeout 30
 rhino-cli ping --port 50061 --verbose
 rhino-cli list-methods --port 50061
 rhino-cli call system.version --port 50061 --pretty
+rhino-cli run-script "_Zoom _Extents" --port 50061
+rhino-cli history --tail 50 --port 50061
 rhino-cli shutdown
 ```
 
 `launch` and `shutdown` currently automate Rhino on macOS via the installed app name. The default app is `Rhino 8`; use `--app "RhinoWIP"` or `--app "Rhino 7"` when needed. `launch --restart` asks Rhino to quit before relaunching. `launch --script "<Rhino command script>"` passes a Rhino `-runscript` argument before waiting for `system.ping`.
+
+`run-script` prints Rhino's `RunScript` result JSON. Use `--fail-on-false` when a false return value should fail automation.
 
 ## MinimalPlugin
 
@@ -89,6 +93,8 @@ Launch Rhino 8, then call:
 ```bash
 rhino-cli launch --port 50099 --timeout 120
 rhino-cli call minimal.hello --port 50099
+rhino-cli run-script "_Zoom _Extents" --port 50099
+rhino-cli history --tail 20 --port 50099
 rhino-cli shutdown
 ```
 
