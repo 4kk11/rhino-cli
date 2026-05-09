@@ -141,7 +141,7 @@ null
 **Response**:
 ```json
 {
-  "server": {"plugin_id":"RhinoCliPlugin","port":50099,"server_version":"0.1.0"},
+  "server": {"plugin_id":"RhinoCliPlugin","port":50061,"server_version":"0.1.0"},
   "methods": [
     {
       "method": "rhino.run_script",

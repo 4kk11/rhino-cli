@@ -87,6 +87,15 @@ pub fn launch(ctx: &CommandContext, args: LaunchArgs) -> Result<()> {
         return Ok(());
     }
 
+    if !args.restart && is_app_running(&args.app)? {
+        return Err(CliError::InvalidInput(format!(
+            "{app} is already running, but RhinoCliPlugin is not reachable at {host}:{port}. Use `rhino-cli launch --restart --port {port}` to apply the requested plugin port.",
+            app = args.app,
+            host = ctx.host,
+            port = ctx.port
+        )));
+    }
+
     if args.restart {
         shutdown(
             ctx,
@@ -96,6 +105,8 @@ pub fn launch(ctx: &CommandContext, args: LaunchArgs) -> Result<()> {
             },
         )?;
     }
+
+    write_plugin_launch_config(ctx.port)?;
 
     let startup_script = args
         .script
@@ -108,6 +119,61 @@ pub fn launch(ctx: &CommandContext, args: LaunchArgs) -> Result<()> {
     }
 
     wait_until_ready(ctx, args.timeout)
+}
+
+fn write_plugin_launch_config(port: u16) -> Result<()> {
+    let path = plugin_launch_config_path()?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|error| {
+            CliError::Other(format!(
+                "failed to create RhinoCliPlugin config directory {}: {error}",
+                parent.display()
+            ))
+        })?;
+    }
+
+    let content = serde_json::to_string_pretty(&json!({ "port": port }))?;
+    std::fs::write(&path, content).map_err(|error| {
+        CliError::Other(format!(
+            "failed to write RhinoCliPlugin launch config {}: {error}",
+            path.display()
+        ))
+    })
+}
+
+fn plugin_launch_config_path() -> Result<PathBuf> {
+    #[cfg(target_os = "macos")]
+    {
+        let home = std::env::var_os("HOME")
+            .ok_or_else(|| CliError::Other("HOME is not set".to_string()))?;
+        return Ok(PathBuf::from(home)
+            .join("Library")
+            .join("Application Support")
+            .join("rhino-cli")
+            .join("RhinoCliPlugin")
+            .join("config.json"));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let appdata = std::env::var_os("APPDATA")
+            .ok_or_else(|| CliError::Other("APPDATA is not set".to_string()))?;
+        return Ok(PathBuf::from(appdata)
+            .join("rhino-cli")
+            .join("RhinoCliPlugin")
+            .join("config.json"));
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let home = std::env::var_os("HOME")
+            .ok_or_else(|| CliError::Other("HOME is not set".to_string()))?;
+        Ok(PathBuf::from(home)
+            .join(".config")
+            .join("rhino-cli")
+            .join("RhinoCliPlugin")
+            .join("config.json"))
+    }
 }
 
 pub fn shutdown(ctx: &CommandContext, args: ShutdownArgs) -> Result<()> {

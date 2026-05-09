@@ -20,27 +20,27 @@ The same artifact set is copied to Rhino's macOS plugin directory:
 1. Launch Rhino and wait for the plugin:
 
 ```bash
-rhino-cli launch --new-model --port 50099 --timeout 120
+rhino-cli launch --new-model --port 50061 --timeout 120
 ```
 
 2. Confirm the command history contains:
 
 ```text
-RhinoCliPlugin server listening on 127.0.0.1:50099
+RhinoCliPlugin server listening on 127.0.0.1:50061
 ```
 
 3. Call the plugin from the CLI:
 
 ```bash
-rhino-cli doctor --port 50099
-rhino-cli ping --port 50099
-rhino-cli capabilities --format agent --port 50099
-rhino-cli call rhino_cli.hello --port 50099
-rhino-cli call rhino_cli.echo '{"value":42}' --port 50099
-rhino-cli new-model --port 50099
-rhino-cli run-script "_Zoom _Extents" --port 50099
-rhino-cli history --tail 20 --port 50099
+rhino-cli doctor --port 50061
+rhino-cli ping --port 50061
+rhino-cli capabilities --format agent --port 50061
+rhino-cli call rhino_cli.hello --port 50061
+rhino-cli call rhino_cli.echo '{"value":42}' --port 50061
+rhino-cli new-model --port 50061
+rhino-cli run-script "_Zoom _Extents" --port 50061
+rhino-cli history --tail 20 --port 50061
 rhino-cli screenshot --out /tmp/rhino-cli-plugin.png
-rhino-cli history --clear --port 50099
+rhino-cli history --clear --port 50061
 rhino-cli shutdown
 ```

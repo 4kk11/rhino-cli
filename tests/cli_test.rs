@@ -91,7 +91,7 @@ fn capabilities_prints_handler_metadata() {
             "jsonrpc": "2.0",
             "id": request["id"].clone(),
             "result": {
-                "server": {"pluginId": "RhinoCliPlugin", "port": 50099, "serverVersion": "0.1.0"},
+                "server": {"pluginId": "RhinoCliPlugin", "port": 50061, "serverVersion": "0.1.0"},
                 "methods": [{
                     "method": "rhino.run_script",
                     "description": "Run a Rhino command script.",
@@ -127,7 +127,7 @@ fn capabilities_method_sends_method_param() {
             "jsonrpc": "2.0",
             "id": request["id"].clone(),
             "result": {
-                "server": {"pluginId": "RhinoCliPlugin", "port": 50099, "serverVersion": "0.1.0"},
+                "server": {"pluginId": "RhinoCliPlugin", "port": 50061, "serverVersion": "0.1.0"},
                 "method": {
                     "method": "rhino.new_model",
                     "description": "Create a new Rhino model.",

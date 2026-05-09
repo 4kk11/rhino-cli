@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Rhino;
 using Rhino.PlugIns;
@@ -7,7 +8,7 @@ namespace RhinoCliPlugin;
 
 public sealed class RhinoCliPlugin : PlugIn
 {
-    private const int Port = 50099;
+    private const int DefaultPort = 50061;
     private TcpServer? _server;
 
     public override PlugInLoadTime LoadTime => PlugInLoadTime.AtStartup;
@@ -17,7 +18,8 @@ public sealed class RhinoCliPlugin : PlugIn
         try
         {
             RhinoApp.CommandWindowCaptureEnabled = true;
-            var registry = new HandlerRegistry("RhinoCliPlugin", Port);
+            var port = ResolvePort();
+            var registry = new HandlerRegistry("RhinoCliPlugin", port);
             registry.Register("rhino_cli.hello", new HelloHandler());
             registry.Register("rhino_cli.echo", new EchoHandler());
             registry.Register("rhino.run_script", new RunScriptHandler());
@@ -25,7 +27,7 @@ public sealed class RhinoCliPlugin : PlugIn
             registry.Register("rhino.command_history", new CommandHistoryHandler());
             registry.Register("rhino.clear_command_history", new ClearCommandHistoryHandler());
 
-            _server = new TcpServer(Port, registry, "RhinoCliPlugin", InvokeOnUiThread);
+            _server = new TcpServer(port, registry, "RhinoCliPlugin", InvokeOnUiThread);
             _server.OnError += message => RhinoApp.WriteLine($"RhinoCliPlugin: {message}");
             _server.Start();
 
@@ -71,6 +73,69 @@ public sealed class RhinoCliPlugin : PlugIn
 
         return result;
     }
+
+    private static int ResolvePort()
+    {
+        if (TryParsePort(Environment.GetEnvironmentVariable("RHINO_CLI_PORT"), out var envPort))
+        {
+            return envPort;
+        }
+
+        return ReadConfiguredPort() ?? DefaultPort;
+    }
+
+    private static int? ReadConfiguredPort()
+    {
+        var path = ConfigPath();
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            if (!document.RootElement.TryGetProperty("port", out var value))
+            {
+                return null;
+            }
+
+            if (value.ValueKind == JsonValueKind.Number
+                && value.TryGetInt32(out var numericPort)
+                && IsValidPort(numericPort))
+            {
+                return numericPort;
+            }
+
+            if (value.ValueKind == JsonValueKind.String
+                && TryParsePort(value.GetString(), out var stringPort))
+            {
+                return stringPort;
+            }
+        }
+        catch (Exception ex)
+        {
+            RhinoApp.WriteLine($"RhinoCliPlugin: failed to read config {path}: {ex.Message}");
+        }
+
+        return null;
+    }
+
+    private static string ConfigPath()
+    {
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "rhino-cli",
+            "RhinoCliPlugin",
+            "config.json");
+    }
+
+    private static bool TryParsePort(string? value, out int port)
+    {
+        return int.TryParse(value, out port) && IsValidPort(port);
+    }
+
+    private static bool IsValidPort(int port) => port > 0 && port <= 65535;
 
     [HandlerMetadataAttribute(
         "Return params unchanged for JSON-RPC diagnostics.",

@@ -207,13 +207,13 @@ Rhino 非依存の純粋ライブラリ。`MessageRouter` / `HandlerRegistry` / 
 - [x] **7-1**: `plugin/RhinoCliPlugin/RhinoCliPlugin.csproj`
   - net7.0、RhinoCommon 依存、`RhinoCli.Server` を ProjectReference
 - [x] **7-2**: `RhinoCliPlugin.cs`
-  - `OnLoad` で `TcpServer` 起動 (port 50099)
+  - `OnLoad` で `TcpServer` 起動 (default port 50061 / launch config で上書き)
   - 1 つだけ診断 handler `rhino_cli.echo` (params をそのまま result に)
 - [x] **7-3**: `RhinoCliPlugin/HelloHandler.cs` (`rhino_cli.hello` → `{"hello":"world"}`)
 - [x] **7-4**: `plugin/RhinoCliPlugin/README.md` で起動・接続手順
 - [x] **7-5**: Rhino を実際に立ち上げて手動確認:
-  - `rhino-cli ping --port 50099`
-  - `rhino-cli call rhino_cli.hello --port 50099`
+  - `rhino-cli ping --port 50061`
+  - `rhino-cli call rhino_cli.hello --port 50061`
 
 ---
 
@@ -291,7 +291,7 @@ Phase 6 で初めて両者が出会う。
 | 2026-05-09 | 4-6 | C# server library、built-in handlers、Rust↔C# E2E runner 実装 |
 | 2026-05-09 | 7-8 | RhinoCliPlugin build、plugin integration docs、cargo install 確認 |
 | 2026-05-09 | extra | RhinoCliPlugin PostBuild コピー、Rhino launch/shutdown CLI 追加 |
-| 2026-05-09 | 7 | `rhino-cli launch --port 50099` → `call rhino_cli.hello` → `shutdown` 実機確認 |
+| 2026-05-09 | 7 | `rhino-cli launch --port 50061` → `call rhino_cli.hello` → `shutdown` 実機確認 |
 | 2026-05-09 | extra | Rhino run-script/history CLI と RhinoCliPlugin handlers 追加 |
 | 2026-05-09 | extra | Rhino window screenshot CLI 追加 |
 | 2026-05-09 | verify | `screenshot` 実機実行で macOS Screen Recording 権限チェックまで確認 |
