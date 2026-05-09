@@ -1,0 +1,52 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "plugin", "plugin", "{7F42074E-682A-A599-6CDB-8399CB51B8EF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "server", "server", "{DAD03CFC-D5FA-AC94-41C7-9ABAB326F09E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RhinoCliPlugin", "plugin\RhinoCliPlugin\RhinoCliPlugin.csproj", "{F6576504-0498-2D80-7931-F3EA074709D3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RhinoCli.TestRunner", "server\RhinoCli.TestRunner\RhinoCli.TestRunner.csproj", "{447A1CB3-6849-0292-6D10-E0D34A0FD355}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RhinoCli.Server.Tests", "server\RhinoCli.Server.Tests\RhinoCli.Server.Tests.csproj", "{726BE167-4975-9A05-818E-BDE13A3EBE3E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RhinoCli.Server", "server\RhinoCli.Server\RhinoCli.Server.csproj", "{68AAAA87-B22B-6F54-7D3F-E8E1EA5D66EE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F6576504-0498-2D80-7931-F3EA074709D3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F6576504-0498-2D80-7931-F3EA074709D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F6576504-0498-2D80-7931-F3EA074709D3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F6576504-0498-2D80-7931-F3EA074709D3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{447A1CB3-6849-0292-6D10-E0D34A0FD355}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{447A1CB3-6849-0292-6D10-E0D34A0FD355}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{447A1CB3-6849-0292-6D10-E0D34A0FD355}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{447A1CB3-6849-0292-6D10-E0D34A0FD355}.Release|Any CPU.Build.0 = Release|Any CPU
+		{726BE167-4975-9A05-818E-BDE13A3EBE3E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{726BE167-4975-9A05-818E-BDE13A3EBE3E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{726BE167-4975-9A05-818E-BDE13A3EBE3E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{726BE167-4975-9A05-818E-BDE13A3EBE3E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68AAAA87-B22B-6F54-7D3F-E8E1EA5D66EE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68AAAA87-B22B-6F54-7D3F-E8E1EA5D66EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68AAAA87-B22B-6F54-7D3F-E8E1EA5D66EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68AAAA87-B22B-6F54-7D3F-E8E1EA5D66EE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{F6576504-0498-2D80-7931-F3EA074709D3} = {7F42074E-682A-A599-6CDB-8399CB51B8EF}
+		{447A1CB3-6849-0292-6D10-E0D34A0FD355} = {DAD03CFC-D5FA-AC94-41C7-9ABAB326F09E}
+		{726BE167-4975-9A05-818E-BDE13A3EBE3E} = {DAD03CFC-D5FA-AC94-41C7-9ABAB326F09E}
+		{68AAAA87-B22B-6F54-7D3F-E8E1EA5D66EE} = {DAD03CFC-D5FA-AC94-41C7-9ABAB326F09E}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E9A917A5-69AE-41D5-BEE0-6E88F1D63B52}
+	EndGlobalSection
+EndGlobal
