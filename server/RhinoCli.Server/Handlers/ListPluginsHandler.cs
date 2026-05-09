@@ -2,6 +2,12 @@ using System.Text.Json.Nodes;
 
 namespace RhinoCli.Server.Handlers;
 
+[HandlerMetadataAttribute(
+    "Return the plugin id and port for this RhinoCli.Server instance.",
+    ParamsSchema = "null",
+    ResultSchema = "{ plugins: [{ id: string, port: number }] }",
+    Examples = new[] { "rhino-cli call rpc.list_plugins" },
+    Category = "rpc")]
 public sealed class ListPluginsHandler : IHandler
 {
     private readonly ServerInfo _info;

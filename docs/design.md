@@ -59,7 +59,8 @@ GeoMLRhino プロジェクトの **Stage 1.1 UserData 耐久テスト** を CLI 
 │                    │                                │   │   └─ RhinoCli.Server         │
 │   subcommands:     │                                │   ├─ Plugin B (port 50062)       │
 │    ping            │                                │   │   └─ RhinoCli.Server         │
-│    list-methods    │                                │   └─ ...                         │
+│    doctor          │                                │   └─ ...                         │
+│    capabilities    │                                │                                  │
 │    call            │                                │                                  │
 │    wait-ready      │                                │  Each plugin runs its own server. │
 └────────────────────┘                                └─────────────────────────────────┘
@@ -226,10 +227,11 @@ rhino-cli ping
 rhino-cli list-methods
 ```
 
-`rpc.list_methods` を呼び、結果を行で出力。
+`rpc.list_methods` を呼び、結果を行で出力。互換用の軽量一覧で、AI や人間が handler の仕様を読む場合は `capabilities` を使う。
 
 ```
 geoml.durability_test
+rpc.capabilities
 rpc.list_methods
 rpc.list_plugins
 system.ping
@@ -261,7 +263,23 @@ rhino-cli wait-ready [--timeout 30]
 
 サーバ起動を待つ。指定秒間 100ms 間隔で `ping` を試行。`--timeout` の既定は `--connect-timeout` ではなく専用に 30 秒。Rhino 起動直後の race 用。
 
-#### 4.2.5 `launch`
+#### 4.2.5 `doctor`
+
+```
+rhino-cli doctor [--app "Rhino 8"]
+```
+
+Rhino アプリの起動状態と `RhinoCliPlugin` RPC 到達性を確認する。未起動・ポート不一致・プラグイン未ロードの切り分けに使う。これは「使える状態か」を見る診断コマンドで、handler の仕様は `capabilities` に集約する。
+
+#### 4.2.6 `capabilities`
+
+```
+rhino-cli capabilities [--method <METHOD>] [--format text|json|markdown|agent]
+```
+
+プラグイン側の `rpc.capabilities` を呼び、登録済み handler の説明、params/result schema、例、専用 CLI、side effects を表示する。AI に渡す文脈は `--format agent`、機械処理は `--format json` を使う。`--method` 指定時は 1 handler の詳細だけを出す。
+
+#### 4.2.7 `launch`
 
 ```
 rhino-cli launch [--app "Rhino 8"] [--restart] [--no-wait] [--new-model] [--script "<RUNSCRIPT>"] [--timeout 120]
@@ -269,7 +287,7 @@ rhino-cli launch [--app "Rhino 8"] [--restart] [--no-wait] [--new-model] [--scri
 
 macOS 上で Rhino を起動し、対象ポートの `system.ping` が成功するまで待つ。既に応答可能な場合は即成功する。`--restart` は既存 Rhino に終了を依頼してから起動し直す。`--new-model` は Rhino 起動画面を残さず新規モデルウィンドウまで開くため、起動時に harmless な `-runscript _NoEcho` を渡す。`--script` は Rhino の `-runscript` 引数として渡す。既に Rhino が起動済みの場合、起動時引数は適用できないため `--new-model` / `--script` は `--restart` と併用する。
 
-#### 4.2.6 `shutdown`
+#### 4.2.8 `shutdown`
 
 ```
 rhino-cli shutdown [--app "Rhino 8"] [--timeout 30]
@@ -277,7 +295,7 @@ rhino-cli shutdown [--app "Rhino 8"] [--timeout 30]
 
 macOS の AppleScript 経由で Rhino に終了を依頼し、プロセス終了まで待つ。保存確認ダイアログが残る場合はタイムアウトする。
 
-#### 4.2.7 `run-script`
+#### 4.2.9 `run-script`
 
 ```
 rhino-cli run-script <SCRIPT> [--echo] [--mru <TEXT>] [--fail-on-false]
@@ -285,7 +303,7 @@ rhino-cli run-script <SCRIPT> [--echo] [--mru <TEXT>] [--fail-on-false]
 
 プラグイン側の `rhino.run_script` を呼び、Rhino UI スレッド上で `RhinoApp.RunScript` を実行する。`SCRIPT` は Rhino コマンドラインに渡す script 文字列。macOS の Rhino では script が command history に投入されても `RunScript` が `false` を返すケースがあるため、既定では結果 JSON を表示して終了コード 0 とする。厳密に false を失敗扱いしたい場合だけ `--fail-on-false` を使う。
 
-#### 4.2.8 `history`
+#### 4.2.10 `history`
 
 ```
 rhino-cli history [--tail <N>] [--json]
@@ -294,7 +312,7 @@ rhino-cli history --clear
 
 プラグイン側の `rhino.command_history` / `rhino.clear_command_history` を呼ぶ。既定では command history のテキストだけを stdout に出す。`--json` または `--pretty` で line count や truncation 情報を含む JSON を出す。
 
-#### 4.2.9 `new-model`
+#### 4.2.11 `new-model`
 
 ```
 rhino-cli new-model [--template <3DM>]
@@ -302,7 +320,7 @@ rhino-cli new-model [--template <3DM>]
 
 プラグイン側の `rhino.new_model` を呼び、Rhino の default template から新規モデルを作成する。`--template` 指定時はその `.3dm` をテンプレートとして使う。これは既に modeling session が開いている状態で追加の新規モデルを作るための RPC で、起動画面を越える用途には `launch --new-model` を使う。
 
-#### 4.2.10 `screenshot`
+#### 4.2.12 `screenshot`
 
 ```
 rhino-cli screenshot [--app "Rhino 8"] [--out <PNG>] [--window-id <ID>] [--no-activate] [--no-shadow]
@@ -433,6 +451,8 @@ public class MyPlugin : Rhino.PlugIns.PlugIn
 ```
 
 各プラグインは自分の既定ポートを README で宣言する責務を負う。
+
+handler の説明、params/result schema、例、side effects は handler クラスの `HandlerMetadataAttribute` に持たせる。`HandlerRegistry.Register(method, handler)` はこの attribute を自動で読み、`rpc.capabilities` で公開する。登録時に明示 `HandlerMetadata` を渡した場合はそちらを優先する。
 
 ### 5.3 組込時の注意
 

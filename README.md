@@ -60,10 +60,12 @@ cargo install --path .
 Run against a plugin server:
 
 ```bash
+rhino-cli doctor --port 50061
 rhino-cli launch --new-model --port 50061 --timeout 120
 rhino-cli wait-ready --port 50061 --timeout 30
 rhino-cli ping --port 50061 --verbose
-rhino-cli list-methods --port 50061
+rhino-cli capabilities --port 50061
+rhino-cli capabilities --method rhino.run_script --port 50061
 rhino-cli call system.version --port 50061 --pretty
 rhino-cli new-model --port 50061
 rhino-cli run-script "_Zoom _Extents" --port 50061
@@ -73,6 +75,10 @@ rhino-cli shutdown
 ```
 
 `launch` and `shutdown` currently automate Rhino on macOS via the installed app name. The default app is `Rhino 8`; use `--app "RhinoWIP"` or `--app "Rhino 7"` when needed. `launch --restart` asks Rhino to quit before relaunching. `launch --new-model` opens a modeling window at startup instead of leaving Rhino's start window active. `launch --script "<Rhino command script>"` passes a Rhino `-runscript` argument before waiting for `system.ping`.
+
+`doctor` answers whether Rhino and the RhinoCliPlugin RPC endpoint are reachable. `capabilities` is the self-describing command for AI agents and humans: it prints registered handlers, params, result shapes, examples, side effects, and dedicated CLI wrappers. Use `--format json`, `--format markdown`, or `--format agent` when another tool needs structured context.
+
+`call` is the universal execution path for any registered handler.
 
 `run-script` prints Rhino's `RunScript` result JSON. Use `--fail-on-false` when a false return value should fail automation.
 
@@ -98,6 +104,7 @@ Launch Rhino 8, then call:
 
 ```bash
 rhino-cli launch --new-model --port 50099 --timeout 120
+rhino-cli capabilities --format agent --port 50099
 rhino-cli call rhino_cli.hello --port 50099
 rhino-cli new-model --port 50099
 rhino-cli run-script "_Zoom _Extents" --port 50099

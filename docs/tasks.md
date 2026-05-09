@@ -297,3 +297,5 @@ Phase 6 で初めて両者が出会う。
 | 2026-05-09 | verify | `screenshot` 実機実行で macOS Screen Recording 権限チェックまで確認 |
 | 2026-05-09 | extra | `launch --new-model` と `rhino.new_model` handler 追加 |
 | 2026-05-09 | extra | `examples/MinimalPlugin` を `plugin/RhinoCliPlugin` へ移動し、コア同梱プラグインとして改名 |
+| 2026-05-09 | extra | `doctor` / `capabilities` と `rpc.capabilities` metadata を追加 |
+| 2026-05-09 | extra | handler metadata を `HandlerMetadataAttribute` に移し、handler クラス定義へ集約 |

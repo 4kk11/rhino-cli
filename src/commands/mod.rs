@@ -1,4 +1,6 @@
 pub mod call;
+pub mod capabilities;
+pub mod doctor;
 pub mod list_methods;
 pub mod ping;
 pub mod rhino;

@@ -72,6 +72,12 @@ public sealed class RhinoCliPlugin : PlugIn
         return result;
     }
 
+    [HandlerMetadataAttribute(
+        "Return params unchanged for JSON-RPC diagnostics.",
+        ParamsSchema = "any JSON object, array, or null",
+        ResultSchema = "same as params",
+        Examples = new[] { "rhino-cli call rhino_cli.echo '{\"value\":42}'" },
+        Category = "diagnostic")]
     private sealed class EchoHandler : IHandler
     {
         public object? Execute(JsonNode? @params) => @params;

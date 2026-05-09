@@ -6,6 +6,17 @@ using RhinoCli.Server;
 
 namespace RhinoCliPlugin;
 
+[HandlerMetadataAttribute(
+    "Read Rhino history console text.",
+    ParamsSchema = "null | { tail?: number }",
+    ResultSchema = "{ status: string, text: string, line_count: number, total_line_count: number, truncated: boolean, command_prompt: string }",
+    Examples = new[]
+    {
+        "rhino-cli history --tail 20",
+        "rhino-cli call rhino.command_history '{\"tail\":20}'"
+    },
+    DedicatedCommand = "rhino-cli history [--tail <n>] [--json]",
+    Category = "rhino")]
 public sealed class CommandHistoryHandler : IHandler
 {
     public object Execute(JsonNode? @params)
@@ -110,6 +121,14 @@ public sealed class CommandHistoryHandler : IHandler
     }
 }
 
+[HandlerMetadataAttribute(
+    "Clear the rhino-cli fallback history buffer.",
+    ParamsSchema = "null",
+    ResultSchema = "{ status: string }",
+    Examples = new[] { "rhino-cli history --clear" },
+    DedicatedCommand = "rhino-cli history --clear",
+    SideEffects = "Clears rhino-cli's plugin-side fallback history buffer.",
+    Category = "rhino")]
 public sealed class ClearCommandHistoryHandler : IHandler
 {
     public object Execute(JsonNode? @params)

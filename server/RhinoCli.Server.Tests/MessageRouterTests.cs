@@ -95,7 +95,14 @@ public sealed class MessageRouterTests
     public void BuiltInListMethodsIncludesSystemAndCustomMethods()
     {
         var registry = CreateRegistry();
-        registry.Register("test.echo", new EchoHandler());
+        registry.Register("test.echo", new EchoHandler(), new HandlerMetadata
+        {
+            Description = "Echo test params.",
+            ParamsSchema = "any",
+            ResultSchema = "same as params",
+            Examples = new[] { "rhino-cli call test.echo '{\"ok\":true}'" },
+            Category = "test"
+        });
         var router = new MessageRouter(registry, "TestPlugin");
 
         var response = Handle(router, """{"jsonrpc":"2.0","id":8,"method":"rpc.list_methods"}""");
@@ -103,9 +110,51 @@ public sealed class MessageRouterTests
 
         Assert.Contains("system.ping", methods);
         Assert.Contains("system.version", methods);
+        Assert.Contains("rpc.capabilities", methods);
         Assert.Contains("rpc.list_methods", methods);
         Assert.Contains("rpc.list_plugins", methods);
         Assert.Contains("test.echo", methods);
+    }
+
+    [Fact]
+    public void BuiltInCapabilitiesReturnsMethodMetadata()
+    {
+        var registry = CreateRegistry();
+        registry.Register("test.echo", new EchoHandler(), new HandlerMetadata
+        {
+            Description = "Echo test params.",
+            ParamsSchema = "any",
+            ResultSchema = "same as params",
+            Examples = new[] { "rhino-cli call test.echo '{\"ok\":true}'" },
+            Category = "test"
+        });
+        var router = new MessageRouter(registry, "TestPlugin");
+
+        var response = Handle(router, """{"jsonrpc":"2.0","id":9,"method":"rpc.capabilities","params":{"method":"test.echo"}}""");
+        var method = response["result"]!["method"]!;
+
+        Assert.Equal("TestPlugin", response["result"]!["server"]!["plugin_id"]!.GetValue<string>());
+        Assert.Equal("test.echo", method["method"]!.GetValue<string>());
+        Assert.Equal("Echo test params.", method["description"]!.GetValue<string>());
+        Assert.Equal("any", method["paramsSchema"]!.GetValue<string>());
+        Assert.Equal("same as params", method["resultSchema"]!.GetValue<string>());
+        Assert.Equal("test", method["category"]!.GetValue<string>());
+        Assert.Equal("rhino-cli call test.echo '{\"ok\":true}'", method["examples"]![0]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void RegisterUsesHandlerMetadataAttributeWhenExplicitMetadataIsNotProvided()
+    {
+        var registry = CreateRegistry();
+        registry.Register("test.attribute", new AttributeMetadataHandler());
+        var router = new MessageRouter(registry, "TestPlugin");
+
+        var response = Handle(router, """{"jsonrpc":"2.0","id":10,"method":"rpc.capabilities","params":{"method":"test.attribute"}}""");
+        var method = response["result"]!["method"]!;
+
+        Assert.Equal("Metadata from attribute.", method["description"]!.GetValue<string>());
+        Assert.Equal("{ value: number }", method["paramsSchema"]!.GetValue<string>());
+        Assert.Equal("attribute", method["category"]!.GetValue<string>());
     }
 
     [Fact]
@@ -113,7 +162,7 @@ public sealed class MessageRouterTests
     {
         var router = CreateRouter(port: 50099);
 
-        var response = Handle(router, """{"jsonrpc":"2.0","id":9,"method":"rpc.list_plugins"}""");
+        var response = Handle(router, """{"jsonrpc":"2.0","id":11,"method":"rpc.list_plugins"}""");
         var plugin = response["result"]!["plugins"]![0]!;
 
         Assert.Equal("TestPlugin", plugin["id"]!.GetValue<string>());
@@ -132,7 +181,7 @@ public sealed class MessageRouterTests
             return handler.Execute(@params);
         });
 
-        var response = Handle(router, """{"jsonrpc":"2.0","id":10,"method":"test.echo","params":{"ok":true}}""");
+        var response = Handle(router, """{"jsonrpc":"2.0","id":12,"method":"test.echo","params":{"ok":true}}""");
 
         Assert.True(invoked);
         Assert.True(response["result"]!["ok"]!.GetValue<bool>());
@@ -172,5 +221,15 @@ public sealed class MessageRouterTests
         {
             throw new InvalidOperationException("boom");
         }
+    }
+
+    [HandlerMetadataAttribute(
+        "Metadata from attribute.",
+        ParamsSchema = "{ value: number }",
+        ResultSchema = "{ ok: boolean }",
+        Category = "attribute")]
+    private sealed class AttributeMetadataHandler : IHandler
+    {
+        public object? Execute(JsonNode? @params) => new { ok = true };
     }
 }

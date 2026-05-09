@@ -32,7 +32,9 @@ RhinoCliPlugin server listening on 127.0.0.1:50099
 3. Call the plugin from the CLI:
 
 ```bash
+rhino-cli doctor --port 50099
 rhino-cli ping --port 50099
+rhino-cli capabilities --format agent --port 50099
 rhino-cli call rhino_cli.hello --port 50099
 rhino-cli call rhino_cli.echo '{"value":42}' --port 50099
 rhino-cli new-model --port 50099

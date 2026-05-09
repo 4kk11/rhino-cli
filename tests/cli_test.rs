@@ -83,6 +83,104 @@ fn list_methods_prints_one_method_per_line() {
 }
 
 #[test]
+fn capabilities_prints_handler_metadata() {
+    let (port, handle) = spawn_rpc_server(|request| {
+        assert_eq!(request["method"], "rpc.capabilities");
+        assert!(request["params"].is_null());
+        json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {
+                "server": {"pluginId": "RhinoCliPlugin", "port": 50099, "serverVersion": "0.1.0"},
+                "methods": [{
+                    "method": "rhino.run_script",
+                    "description": "Run a Rhino command script.",
+                    "paramsSchema": "{ script: string }",
+                    "resultSchema": "{ success: boolean }",
+                    "examples": ["rhino-cli run-script \"_Zoom _Extents\""],
+                    "dedicatedCommand": "rhino-cli run-script <SCRIPT>",
+                    "sideEffects": "May modify the active document.",
+                    "category": "rhino"
+                }]
+            }
+        })
+    });
+
+    bin()
+        .args(["capabilities", "--port", &port.to_string()])
+        .assert()
+        .success()
+        .stdout(
+            predicate::str::contains("rhino.run_script")
+                .and(predicate::str::contains("Run a Rhino command script."))
+                .and(predicate::str::contains("rhino-cli run-script <SCRIPT>")),
+        );
+    handle.join().unwrap();
+}
+
+#[test]
+fn capabilities_method_sends_method_param() {
+    let (port, handle) = spawn_rpc_server(|request| {
+        assert_eq!(request["method"], "rpc.capabilities");
+        assert_eq!(request["params"], json!({"method": "rhino.new_model"}));
+        json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {
+                "server": {"pluginId": "RhinoCliPlugin", "port": 50099, "serverVersion": "0.1.0"},
+                "method": {
+                    "method": "rhino.new_model",
+                    "description": "Create a new Rhino model.",
+                    "paramsSchema": "null | { template?: string }",
+                    "resultSchema": "{ status: string }",
+                    "examples": ["rhino-cli new-model"],
+                    "dedicatedCommand": "rhino-cli new-model [--template <3dm>]",
+                    "sideEffects": "Creates a new unsaved Rhino document.",
+                    "category": "rhino"
+                }
+            }
+        })
+    });
+
+    bin()
+        .args([
+            "capabilities",
+            "--method",
+            "rhino.new_model",
+            "--format",
+            "json",
+            "--port",
+            &port.to_string(),
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"method\":\"rhino.new_model\""));
+    handle.join().unwrap();
+}
+
+#[test]
+fn doctor_reports_reachable_rpc() {
+    let (port, handle) = spawn_rpc_server(|request| {
+        assert_eq!(request["method"], "system.ping");
+        json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {"pong": true, "server": "RhinoCliPlugin", "version": "0.1.0"}
+        })
+    });
+
+    bin()
+        .args(["doctor", "--port", &port.to_string()])
+        .assert()
+        .success()
+        .stdout(
+            predicate::str::contains("RhinoCliPlugin RPC: reachable")
+                .and(predicate::str::contains("Server: RhinoCliPlugin 0.1.0")),
+        );
+    handle.join().unwrap();
+}
+
+#[test]
 fn call_sends_positional_json_params_and_prints_result() {
     let (port, handle) = spawn_rpc_server(|request| {
         assert_eq!(request["method"], "rhino_cli.echo");

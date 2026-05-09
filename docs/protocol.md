@@ -116,14 +116,48 @@ CLI は **connect-per-call**:
 
 ### 3.3 `rpc.list_methods`
 
-このサーバで利用可能な全メソッド名 (system / rpc / plugin 全て) を返す。
+このサーバで利用可能な全メソッド名 (system / rpc / plugin 全て) を返す。互換用の軽量 API。handler 仕様は `rpc.capabilities` を使う。
 
 **Response**:
 ```json
-{"methods":["geoml.durability_test","rpc.list_methods","rpc.list_plugins","system.ping","system.version"]}
+{"methods":["geoml.durability_test","rpc.capabilities","rpc.list_methods","rpc.list_plugins","system.ping","system.version"]}
 ```
 
-### 3.4 `rpc.list_plugins`
+### 3.4 `rpc.capabilities`
+
+登録済み handler の説明、params/result schema、例、専用 CLI、side effects を返す。`params.method` 指定時は 1 handler のみ返す。
+
+**Request**:
+```json
+null
+```
+
+または:
+
+```json
+{"method":"rhino.run_script"}
+```
+
+**Response**:
+```json
+{
+  "server": {"plugin_id":"RhinoCliPlugin","port":50099,"server_version":"0.1.0"},
+  "methods": [
+    {
+      "method": "rhino.run_script",
+      "description": "Run a Rhino command script on the Rhino UI thread.",
+      "paramsSchema": "{ script: string, echo?: boolean, mru_display_string?: string }",
+      "resultSchema": "{ status: string, success: boolean, script: string, command_prompt: string }",
+      "examples": ["rhino-cli run-script \"_Zoom _Extents\""],
+      "dedicatedCommand": "rhino-cli run-script <SCRIPT>",
+      "sideEffects": "Executes Rhino commands and may modify the active document.",
+      "category": "rhino"
+    }
+  ]
+}
+```
+
+### 3.5 `rpc.list_plugins`
 
 (将来用、MVP では `pluginId` 1 個を要素 1 で返すだけ。) 同一 Rhino プロセス内に他の `RhinoCli.Server` インスタンスがある場合に発見可能にするため。MVP では協調機構は未実装で固定値を返す。
 
@@ -132,7 +166,7 @@ CLI は **connect-per-call**:
 {"plugins":[{"id":"GeoMLRhino","port":50061}]}
 ```
 
-### 3.5 参照 Rhino automation メソッド
+### 3.6 参照 Rhino automation メソッド
 
 `plugin/RhinoCliPlugin` は rhino-cli 同梱のコアプラグインとして、AI エージェント用の `rhino.*` handler を登録する。`RhinoCli.Server` の built-in ではないため、既存プラグインへ組み込む場合は同等の handler を登録する。
 

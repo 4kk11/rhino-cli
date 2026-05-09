@@ -43,6 +43,7 @@ Create a `HandlerRegistry` in your plugin `OnLoad` method. The registry auto-reg
 
 - `system.ping`
 - `system.version`
+- `rpc.capabilities`
 - `rpc.list_methods`
 - `rpc.list_plugins`
 
@@ -59,6 +60,13 @@ Handlers implement `IHandler`:
 using System.Text.Json.Nodes;
 using RhinoCli.Server;
 
+[HandlerMetadataAttribute(
+    "Run the plugin-specific operation.",
+    ParamsSchema = "{ count: number }",
+    ResultSchema = "{ ok: boolean }",
+    Examples = new[] { "rhino-cli call myplugin.do_thing '{\"count\":3}'" },
+    SideEffects = "Depends on plugin implementation.",
+    Category = "myplugin")]
 public sealed class DoThingHandler : IHandler
 {
     public object Execute(JsonNode? @params)
@@ -67,6 +75,8 @@ public sealed class DoThingHandler : IHandler
     }
 }
 ```
+
+`HandlerRegistry.Register(method, handler)` reads `HandlerMetadataAttribute` from the handler class. If you need to override metadata at registration time, use `Register(method, handler, metadata)`.
 
 Throw `RpcException` for expected RPC failures:
 
@@ -139,10 +149,11 @@ public sealed class MyPlugin : PlugIn
 ## 5. Verify From CLI
 
 ```bash
+rhino-cli doctor --port 50063
 rhino-cli launch --new-model --port 50063 --timeout 120
 rhino-cli wait-ready --port 50063 --timeout 30
 rhino-cli ping --port 50063 --verbose
-rhino-cli list-methods --port 50063
+rhino-cli capabilities --port 50063
 rhino-cli call myplugin.do_thing '{}' --port 50063 --pretty
 rhino-cli new-model --port 50063
 rhino-cli run-script "_Zoom _Extents" --port 50063
@@ -157,6 +168,7 @@ rhino-cli shutdown
 - Use a unique port per plugin.
 - Keep handlers short. Long handlers block Rhino's UI thread.
 - For long-running workflows, return a job id and expose a separate status method.
+- Add `HandlerMetadataAttribute` to custom handler classes so `rhino-cli capabilities` can explain params, examples, and side effects to AI agents.
 - `launch` and `shutdown` currently automate Rhino on macOS with `open` and AppleScript.
 - `launch --new-model` opens a modeling window at startup via Rhino's launch-time `-runscript` path. If Rhino is already running, use `--restart` to apply it.
 - `screenshot` captures the Rhino window on macOS and does not require any plugin RPC handler. The terminal running `rhino-cli` needs macOS Screen Recording permission.

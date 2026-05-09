@@ -150,6 +150,11 @@ pub fn screenshot(ctx: &CommandContext, args: ScreenshotArgs) -> Result<()> {
     Ok(())
 }
 
+pub fn app_running(app: &str) -> Result<bool> {
+    validate_app_name(app)?;
+    is_app_running(app)
+}
+
 fn is_plugin_ready(ctx: &CommandContext) -> bool {
     ctx.client()
         .call("system.ping", json!(null))

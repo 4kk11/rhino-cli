@@ -6,6 +6,8 @@ use rhino_cli::client::{
     DEFAULT_CONNECT_TIMEOUT_SECS, DEFAULT_HOST, DEFAULT_PORT, DEFAULT_TIMEOUT_SECS,
 };
 use rhino_cli::commands::call::CallArgs;
+use rhino_cli::commands::capabilities::{CapabilitiesArgs, CapabilitiesFormat};
+use rhino_cli::commands::doctor::DoctorArgs;
 use rhino_cli::commands::rhino::{LaunchArgs, ScreenshotArgs, ShutdownArgs};
 use rhino_cli::commands::rhino_rpc::{HistoryArgs, NewModelArgs, RunScriptArgs};
 use rhino_cli::commands::CommandContext;
@@ -49,6 +51,21 @@ enum Commands {
     Ping,
     /// List registered RPC methods.
     ListMethods,
+    /// Diagnose Rhino and RhinoCliPlugin connectivity.
+    Doctor {
+        /// Rhino application name.
+        #[arg(long, default_value = "Rhino 8")]
+        app: String,
+    },
+    /// Show registered handler capabilities and call metadata.
+    Capabilities {
+        /// Show one method in detail.
+        #[arg(long)]
+        method: Option<String>,
+        /// Output format.
+        #[arg(long, value_enum, default_value = "text")]
+        format: CapabilitiesFormat,
+    },
     /// Call an arbitrary RPC method.
     Call {
         method: String,
@@ -162,6 +179,10 @@ fn run(cli: Cli) -> Result<()> {
     match cli.command {
         Commands::Ping => rhino_cli::commands::ping::run(&ctx),
         Commands::ListMethods => rhino_cli::commands::list_methods::run(&ctx),
+        Commands::Doctor { app } => rhino_cli::commands::doctor::run(&ctx, DoctorArgs { app }),
+        Commands::Capabilities { method, format } => {
+            rhino_cli::commands::capabilities::run(&ctx, CapabilitiesArgs { method, format })
+        }
         Commands::Call {
             method,
             params_json,

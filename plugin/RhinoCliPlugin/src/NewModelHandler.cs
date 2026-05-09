@@ -5,6 +5,18 @@ using RhinoCli.Server;
 
 namespace RhinoCliPlugin;
 
+[HandlerMetadataAttribute(
+    "Create a new Rhino model from the default template or an explicit .3dm template.",
+    ParamsSchema = "null | { template?: string }",
+    ResultSchema = "{ status: string, document: { runtime_serial_number: number, name: string, path: string, template: string, template_file_used: string, object_count: number } }",
+    Examples = new[]
+    {
+        "rhino-cli new-model",
+        "rhino-cli new-model --template /path/to/template.3dm"
+    },
+    DedicatedCommand = "rhino-cli new-model [--template <3dm>]",
+    SideEffects = "Creates and activates a new unsaved Rhino document.",
+    Category = "rhino")]
 public sealed class NewModelHandler : IHandler
 {
     public object Execute(JsonNode? @params)
