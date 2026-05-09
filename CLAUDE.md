@@ -54,6 +54,26 @@ Rust 製の汎用 Rhino プラグイン RPC クライアント + C# サーバラ
 - NEVER: ユーザーの明示的な承認なしにコミット・プッシュしない
 - NEVER: コミットメッセージに `Co-Authored-By` や `Generated with` 等のシグネチャを付けない
 
+## ハンドラ追加の境界ポリシー
+
+`rhino.*` namespace のハンドラを増やすときは、まず `rhino.run_python` で書けないか検討する。AddBox/AddSphere のような RhinoCommon ラッパーは作らない。
+
+**ハンドラを追加してよい条件（全て満たすこと）:**
+
+1. **run_python では実装困難**: RhinoCommon から触れない領域、UI スレッド以外の制御、特権操作、reflection で internal を叩く必要があるなど
+2. **概念単位で1個に収束する**: 「Document を保存」のような閉じた概念で、形状・パラメータ次元で分裂しない
+3. **構造化 I/O が本質的に意味を持つ**: 単に便利だからではなく、Python 側で文字列処理すると壊れやすい
+
+**判定例:**
+
+- `run_script` ✓: Rhino command system へのエントリ（Python 単独不可）
+- `run_python` ✓: 自分自身がエスケープハッチ
+- `probe_command` ✓: background thread で SendKeystrokes、ScriptContext 切替が必要
+- `command_history` ✓: CommandHistoryViewModel を reflection で叩く
+- `add_box` / `list_objects` / `delete_objects` / `save_document` / `capture_viewport` ✗: RhinoCommon 直叩きで完結。run_python + result_expression で代替
+
+**run_python のレシピ集** は `docs/protocol.md` の `rhino.run_python` セクションに置く。よく使うパターン（save・open・add・list・delete・capture）は examples として 1 行で示す。
+
 ## 注意事項
 
 - RhinoCliPlugin は `plugin/RhinoCliPlugin/RhinoCliPlugin.csproj` の PostBuild で Rhino の plugin directory にコピーされる。コピー先を直接編集しない

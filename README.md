@@ -92,6 +92,8 @@ rhino-cli list-commands --pattern Box --port 50061
 rhino-cli probe-command Box --port 50061
 rhino-cli run-script "_Zoom _Extents" --port 50061
 rhino-cli history --tail 50 --port 50061
+rhino-cli call rhino.run_python '{"source":"import scriptcontext as sc; print(sc.doc.Objects.Count)"}' --port 50061
+rhino-cli call rhino.run_python '{"source":"import scriptcontext as sc, Rhino.FileIO as fio\nopts=fio.FileWriteOptions(); opts.FileVersion=8; opts.SuppressDialogBoxes=True\nok=sc.doc.WriteFile(\"/tmp/test.3dm\", opts)","result_expression":"ok"}' --port 50061
 rhino-cli screenshot --out /tmp/rhino-window.png
 rhino-cli shutdown
 ```
@@ -112,7 +114,21 @@ rhino-cli shutdown
 
 `list-commands` returns Rhino command names known to the running instance (English by default). Use `--pattern` for a case-insensitive substring filter and `--include-unloaded` to also include commands from unloaded plugins. `probe-command <NAME>` starts the command via `! _-<Name> _Cancel` and returns the captured first prompt and option labels (in Rhino's locale) so AI agents can discover argument syntax dynamically before invoking `run-script`. The option short codes in parentheses (e.g. `(D)`, `(P)`) are ASCII-stable across locales and can be passed directly as `_D`, `_P`. Use with care for commands that have immediate side effects or no `-` (no-dialog) variant.
 
-`screenshot` captures the Rhino app window itself as a PNG on macOS. It is useful for autonomous visual debugging after `run-script`; use `--no-shadow` for tighter images, `--no-activate` when you have already focused Rhino, and `--window-id` for a known macOS window id. macOS Screen Recording permission is required for the terminal process running `rhino-cli`.
+`screenshot` captures the Rhino app window itself as a PNG on macOS. It is useful for autonomous visual debugging after `run-script`; use `--no-shadow` for tighter images, `--no-activate` when you have already focused Rhino, and `--window-id` for a known macOS window id. macOS Screen Recording permission is required for the terminal process running `rhino-cli`. For pixel-only viewport rendering call `RhinoView.CaptureToBitmap` via `rhino.run_python` (recipe in `docs/protocol.md`).
+
+### Handler set is intentionally small
+
+The bundled plugin exposes a minimal handler surface: lifecycle / introspection only. Anything that can be expressed in a few lines of RhinoCommon Python — saving / opening files, adding geometry, listing or deleting objects by ID, capturing viewports, batch operations — goes through `rhino.run_python` with `result_expression` rather than getting a dedicated handler. This keeps the protocol from accumulating `add_box → add_sphere → add_cylinder → ...` style bloat.
+
+Currently registered:
+
+- `rhino.run_script` — run Rhino command scripts. Result now includes `objects_added` / `objects_removed` / `command_prompt_changed` / `history_delta`.
+- `rhino.run_python` — execute inline Python with `scriptcontext.doc` pre-wired. Pass `result_expression` to receive a JSON-serialized return value alongside captured `stdout`.
+- `rhino.new_model` — create a new active document.
+- `rhino.command_history` / `rhino.clear_command_history` — read or clear Rhino's command history (uses reflection against the Eto CommandHistoryViewModel; not feasible from `run_python`).
+- `rhino.list_commands` / `rhino.probe_command` — command discovery and dynamic prompt probing (probe needs background-thread `RhinoApp.SendKeystrokes("")` cancel).
+
+The boundary policy and recipe collection (save / open / add box / list / delete / capture-viewport in pure `run_python`) live in `CLAUDE.md` and `docs/protocol.md`.
 
 ## RhinoCliPlugin
 

@@ -170,14 +170,51 @@ null
 
 `plugin/RhinoCliPlugin` は rhino-cli 同梱のコアプラグインとして、AI エージェント用の `rhino.*` handler を登録する。`RhinoCli.Server` の built-in ではないため、既存プラグインへ組み込む場合は同等の handler を登録する。
 
+ハンドラセットは意図的に最小化されている。RhinoCommon を直接叩けば実装できるもの（box 追加、object 列挙、保存、削除、ビューポート画像化など）は専用ハンドラを増やさず `rhino.run_python` の `result_expression` 経由で行う。境界ポリシーは `CLAUDE.md` の「ハンドラ追加の境界ポリシー」を参照。
+
 | Method | Params | 説明 |
 |--------|--------|------|
 | `rhino.new_model` | `null` または `{ "template": "/path/to/template.3dm" }` | 新規 Rhino document を作成する |
-| `rhino.run_script` | `{ "script": "...", "echo": false, "mru_display_string": null }` | Rhino command script を実行する。`_-Cmd arg1 arg2` 形式、座標 `0,0,0`、空白=Enter、`!` 接頭辞=実行中コマンドキャンセル |
+| `rhino.run_script` | `{ "script": "...", "echo"?: bool, "mru_display_string"?: string }` | Rhino command script を実行する。result は `objects_added` / `objects_removed` / `command_prompt_changed` / `history_delta` を含むので、コマンドが実際に何かしたかを呼び出し側が判定できる |
+| `rhino.run_python` | `{ "source": "...", "result_expression"?: "..." }` | Python source 文字列をインライン実行する。`scriptcontext.doc` は active doc にセット済み。`print()` 出力は `stdout` に捕獲。`result_expression` を渡すと source 実行後にその式を評価し、戻り値を JSON シリアライズして `result` に格納する（プリミティブはそのまま、複合型は `System.Text.Json` を試み失敗時は `repr()` 文字列）。本ハンドラはジオメトリ生成・属性操作・RhinoCommon 直叩きの公式エスケープハッチ |
 | `rhino.command_history` | `{ "tail": 50 }` | Rhino history console text を取得する |
 | `rhino.clear_command_history` | `null` | Rhino history console buffer を消去する |
 | `rhino.list_commands` | `null` または `{ "pattern": "Box", "include_unloaded": false }` | Rhino に登録済みのコマンド名一覧を返す。AI agent のコマンド発見用 |
 | `rhino.probe_command` | `{ "name": "Box" }` | コマンドを `! _-{Name} _Cancel × 5` で起動・即時中断し（300ms 経過時には background thread から `RhinoApp.SendKeystrokes("")` で Esc も送出）、最初の Get プロンプトを `RhinoApp.CommandPrompt` から、Write/WriteLine 出力を `RhinoApp.CapturedCommandWindowStrings` から捕獲して返す。option short code は `(D)` `(P)` 等 ASCII 安定で `_D` `_P` としてそのまま渡せる |
+
+#### `rhino.run_python` の代表レシピ
+
+専用ハンドラを置かない代わりに、よく使うパターンは `source` + `result_expression` で組む。
+
+**ドキュメント保存**
+```json
+{ "source": "import scriptcontext as sc, Rhino.FileIO as fio\nopts = fio.FileWriteOptions()\nopts.FileVersion = 8\nopts.SuppressDialogBoxes = True\nok = sc.doc.WriteFile('/tmp/x.3dm', opts)",
+  "result_expression": "ok" }
+```
+
+**Box 追加（軸並行 / 傾斜は Plane と Interval を組む）**
+```json
+{ "source": "import scriptcontext as sc, Rhino.Geometry as rg\nbb = rg.BoundingBox(rg.Point3d(0,0,0), rg.Point3d(100,100,100))\ng = sc.doc.Objects.AddBox(rg.Box(bb))\nsc.doc.Views.Redraw()",
+  "result_expression": "str(g)" }
+```
+
+**bbox / type フィルタつきオブジェクト列挙**
+```json
+{ "source": "import scriptcontext as sc, json\nrows = []\nfor o in sc.doc.Objects:\n    if o is None: continue\n    bb = o.Geometry.GetBoundingBox(True)\n    rows.append({'id':str(o.Id),'type':str(o.ObjectType),'min':[bb.Min.X,bb.Min.Y,bb.Min.Z],'max':[bb.Max.X,bb.Max.Y,bb.Max.Z]})",
+  "result_expression": "json.dumps(rows)" }
+```
+
+**ID 指定削除**
+```json
+{ "source": "import scriptcontext as sc, System\nids = ['<guid>']\ndeleted = sum(1 for s in ids if sc.doc.Objects.Delete(System.Guid.Parse(s), True))\nsc.doc.Views.Redraw()",
+  "result_expression": "deleted" }
+```
+
+**ビューポート PNG 出力**
+```json
+{ "source": "import scriptcontext as sc, System.Drawing as sd, System.Drawing.Imaging as sdi\nbmp = sc.doc.Views.ActiveView.CaptureToBitmap(sd.Size(1280, 720))\nbmp.Save('/tmp/v.png', sdi.ImageFormat.Png)\nbmp.Dispose()",
+  "result_expression": "True" }
+```
 
 ## 4. プラグイン固有メソッド命名規約
 

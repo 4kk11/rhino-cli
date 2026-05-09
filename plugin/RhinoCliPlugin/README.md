@@ -48,3 +48,18 @@ rhino-cli screenshot --out /tmp/rhino-cli-plugin.png
 rhino-cli history --clear --port 50061
 rhino-cli shutdown
 ```
+
+## Registered Handlers
+
+The plugin exposes a deliberately small surface. Anything that can be expressed as a few lines of RhinoCommon Python goes through `rhino.run_python` instead of getting its own bespoke handler. See `CLAUDE.md` ("ハンドラ追加の境界ポリシー") and `docs/protocol.md` for the policy and recipes.
+
+| Method | Why it exists |
+|--------|---------------|
+| `rhino.new_model` | Create a new active document. |
+| `rhino.run_script` | Run a Rhino command script. Returns `objects_added` / `objects_removed` / `command_prompt_changed` / `history_delta` so the caller can tell whether the underlying command actually did anything. |
+| `rhino.run_python` | Execute an inline Python source string. The official escape hatch for arbitrary RhinoCommon work; pass `result_expression` to evaluate a final expression and receive its value JSON-serialized. |
+| `rhino.command_history` / `rhino.clear_command_history` | Read or clear Rhino's command history (reflects the Eto CommandHistoryViewModel via reflection — not feasible from `run_python` alone). |
+| `rhino.list_commands` | Enumerate Rhino command names known to the running instance. |
+| `rhino.probe_command` | Start `! _-{Name} _Cancel × 5` and capture the first Get prompt + Write/WriteLine output. Uses background-thread `RhinoApp.SendKeystrokes("")` for forced cancel; not reproducible from `run_python`. |
+
+For workflows previously covered by `save_document`, `open_document`, `list_objects`, `delete_objects`, `add_box`, `add_box_3point`, and `capture_viewport`, see the recipe block under `rhino.run_python` in `docs/protocol.md`.

@@ -23,6 +23,7 @@ public sealed class RhinoCliPlugin : PlugIn
             registry.Register("rhino_cli.hello", new HelloHandler());
             registry.Register("rhino_cli.echo", new EchoHandler());
             registry.Register("rhino.run_script", new RunScriptHandler());
+            registry.Register("rhino.run_python", new RunPythonHandler());
             registry.Register("rhino.new_model", new NewModelHandler());
             registry.Register("rhino.command_history", new CommandHistoryHandler());
             registry.Register("rhino.clear_command_history", new ClearCommandHistoryHandler());
