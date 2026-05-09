@@ -35,6 +35,14 @@ fn bin() -> Command {
     Command::cargo_bin("rhino-cli").unwrap()
 }
 
+fn unused_port() -> u16 {
+    TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port()
+}
+
 #[test]
 fn ping_calls_system_ping_and_reports_verbose_latency() {
     let (port, handle) = spawn_rpc_server(|request| {
@@ -166,6 +174,27 @@ fn call_rpc_error_exits_with_code_3_and_json_stderr() {
             "{\"error\":{\"code\":-32601,\"message\":\"Method not found\"}}\n",
         ));
     handle.join().unwrap();
+}
+
+#[test]
+fn connection_refused_prints_rhino_start_hint() {
+    let port = unused_port();
+
+    bin()
+        .args([
+            "list-methods",
+            "--port",
+            &port.to_string(),
+            "--connect-timeout",
+            "1",
+        ])
+        .assert()
+        .code(2)
+        .stderr(
+            predicate::str::contains("Rhino is not reachable").and(predicate::str::contains(
+                format!("rhino-cli launch --new-model --port {port} --timeout 120"),
+            )),
+        );
 }
 
 #[test]

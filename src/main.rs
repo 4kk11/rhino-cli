@@ -138,8 +138,10 @@ enum Commands {
 
 fn main() {
     let cli = Cli::parse();
+    let host = cli.host.clone();
+    let port = cli.port;
     if let Err(error) = run(cli) {
-        print_error(&error);
+        print_error(&error, &host, port);
         process::exit(error.exit_code());
     }
 }
@@ -241,8 +243,20 @@ fn run(cli: Cli) -> Result<()> {
     }
 }
 
-fn print_error(error: &CliError) {
+fn print_error(error: &CliError, host: &str, port: u16) {
     match error {
+        CliError::Connect(message) => {
+            eprintln!("connect error: {message}");
+            eprintln!();
+            eprintln!(
+                "Rhino is not reachable at {host}:{port}. Start Rhino and RhinoCliPlugin, then retry:"
+            );
+            eprintln!("  rhino-cli launch --new-model --port {port} --timeout 120");
+            eprintln!();
+            eprintln!(
+                "If Rhino is already running, verify that RhinoCliPlugin is installed and listening on this port."
+            );
+        }
         CliError::RpcError(rpc_error) => {
             eprintln!(
                 "{}",
