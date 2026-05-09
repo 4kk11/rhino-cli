@@ -44,6 +44,24 @@ Rust 製の汎用 Rhino プラグイン用 RPC クライアント + C# サーバ
 
 ## Quick Start
 
+Recommended task runner:
+
+```bash
+cargo install cargo-make
+cargo make check
+cargo make install-cli
+```
+
+Individual tasks:
+
+```bash
+cargo make test
+cargo make build
+cargo make install-cli
+```
+
+Equivalent raw commands:
+
 ```bash
 cargo build
 cargo test
@@ -61,8 +79,9 @@ Run against a plugin server:
 
 ```bash
 rhino-cli doctor --port 50061
-rhino-cli launch --new-model --port 50061 --timeout 120
-rhino-cli wait-ready --port 50061 --timeout 30
+rhino-cli plugin set-port 50061
+rhino-cli launch --new-model
+rhino-cli wait-ready --port 50061 --timeout 120
 rhino-cli ping --port 50061 --verbose
 rhino-cli capabilities --port 50061
 rhino-cli capabilities --method rhino.run_script --port 50061
@@ -74,7 +93,9 @@ rhino-cli screenshot --out /tmp/rhino-window.png
 rhino-cli shutdown
 ```
 
-`launch` and `shutdown` currently automate Rhino on macOS via the installed app name. The default app is `Rhino 8`; use `--app "RhinoWIP"` or `--app "Rhino 7"` when needed. `launch --port <PORT>` writes the RhinoCliPlugin launch config before starting Rhino, so the plugin listens on the same port the CLI waits for. Use `launch --restart --port <PORT>` when Rhino is already running and you need to change the plugin port. `launch --restart` asks Rhino to quit before relaunching. `launch --new-model` opens a modeling window at startup instead of leaving Rhino's start window active. `launch --script "<Rhino command script>"` passes a Rhino `-runscript` argument before waiting for `system.ping`.
+`launch` and `shutdown` currently automate Rhino on macOS via the installed app name. The default app is `Rhino 8`; use `--app "RhinoWIP"` or `--app "Rhino 7"` when needed. `launch` only starts Rhino — it does not configure plugin ports and does not wait for the RPC endpoint. Use `rhino-cli wait-ready --port <PORT>` after launch when you need to block until the plugin answers `system.ping`. `launch --restart` asks Rhino to quit before relaunching. `launch --new-model` opens a modeling window at startup instead of leaving Rhino's start window active. `launch --script "<Rhino command script>"` passes a Rhino `-runscript` argument.
+
+`plugin set-port <PORT>` writes the bundled RhinoCliPlugin's launch config (`~/Library/Application Support/rhino-cli/RhinoCliPlugin/config.json` on macOS). The plugin reads it the next time Rhino loads, so call this before `launch` (or before restarting Rhino) when you need to change the listening port. `plugin show-config` prints the current contents. Third-party plugins that embed `RhinoCli.Server` configure their own ports independently; `plugin set-port` only affects the bundled plugin.
 
 `doctor` answers whether Rhino and the RhinoCliPlugin RPC endpoint are reachable. `capabilities` is the self-describing command for AI agents and humans: it prints registered handlers, params, result shapes, examples, side effects, and dedicated CLI wrappers. Use `--format json`, `--format markdown`, or `--format agent` when another tool needs structured context.
 
@@ -103,7 +124,9 @@ The build copies the plugin artifacts to:
 Launch Rhino 8, then call:
 
 ```bash
-rhino-cli launch --new-model --port 50061 --timeout 120
+rhino-cli plugin set-port 50061
+rhino-cli launch --new-model
+rhino-cli wait-ready --port 50061 --timeout 120
 rhino-cli capabilities --format agent --port 50061
 rhino-cli call rhino_cli.hello --port 50061
 rhino-cli new-model --port 50061

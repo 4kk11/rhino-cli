@@ -1,13 +1,10 @@
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use serde_json::json;
-
 use crate::commands::CommandContext;
 use crate::error::{CliError, Result};
 
 const DEFAULT_APP: &str = "Rhino 8";
-const DEFAULT_LAUNCH_TIMEOUT_SECS: u64 = 120;
 const DEFAULT_SHUTDOWN_TIMEOUT_SECS: u64 = 30;
 #[cfg(target_os = "macos")]
 const MACOS_COMMAND_TIMEOUT_SECS: u64 = 15;
@@ -15,9 +12,7 @@ const MACOS_COMMAND_TIMEOUT_SECS: u64 = 15;
 #[derive(Clone, Debug)]
 pub struct LaunchArgs {
     pub app: String,
-    pub timeout: Duration,
     pub restart: bool,
-    pub no_wait: bool,
     pub new_model: bool,
     pub script: Option<String>,
 }
@@ -41,9 +36,7 @@ impl Default for LaunchArgs {
     fn default() -> Self {
         Self {
             app: DEFAULT_APP.to_string(),
-            timeout: Duration::from_secs(DEFAULT_LAUNCH_TIMEOUT_SECS),
             restart: false,
-            no_wait: false,
             new_model: false,
             script: None,
         }
@@ -74,7 +67,9 @@ impl Default for ScreenshotArgs {
 pub fn launch(ctx: &CommandContext, args: LaunchArgs) -> Result<()> {
     validate_app_name(&args.app)?;
 
-    if !args.restart && is_plugin_ready(ctx) {
+    let app_running = is_app_running(&args.app)?;
+
+    if !args.restart && app_running {
         if args.new_model || args.script.is_some() {
             return Err(CliError::InvalidInput(
                 "Rhino is already running; use `rhino-cli launch --restart --new-model` to apply launch-time model opening, or `rhino-cli new-model` inside an existing modeling session."
@@ -82,21 +77,12 @@ pub fn launch(ctx: &CommandContext, args: LaunchArgs) -> Result<()> {
             ));
         }
         if ctx.verbose && !ctx.quiet {
-            eprintln!("Plugin already ready on {}:{}", ctx.host, ctx.port);
+            eprintln!("{} is already running", args.app);
         }
         return Ok(());
     }
 
-    if !args.restart && is_app_running(&args.app)? {
-        return Err(CliError::InvalidInput(format!(
-            "{app} is already running, but RhinoCliPlugin is not reachable at {host}:{port}. Use `rhino-cli launch --restart --port {port}` to apply the requested plugin port.",
-            app = args.app,
-            host = ctx.host,
-            port = ctx.port
-        )));
-    }
-
-    if args.restart {
+    if args.restart && app_running {
         shutdown(
             ctx,
             ShutdownArgs {
@@ -106,74 +92,11 @@ pub fn launch(ctx: &CommandContext, args: LaunchArgs) -> Result<()> {
         )?;
     }
 
-    write_plugin_launch_config(ctx.port)?;
-
     let startup_script = args
         .script
         .as_deref()
         .or_else(|| args.new_model.then_some("_NoEcho"));
-    launch_app(&args.app, startup_script)?;
-
-    if args.no_wait {
-        return Ok(());
-    }
-
-    wait_until_ready(ctx, args.timeout)
-}
-
-fn write_plugin_launch_config(port: u16) -> Result<()> {
-    let path = plugin_launch_config_path()?;
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|error| {
-            CliError::Other(format!(
-                "failed to create RhinoCliPlugin config directory {}: {error}",
-                parent.display()
-            ))
-        })?;
-    }
-
-    let content = serde_json::to_string_pretty(&json!({ "port": port }))?;
-    std::fs::write(&path, content).map_err(|error| {
-        CliError::Other(format!(
-            "failed to write RhinoCliPlugin launch config {}: {error}",
-            path.display()
-        ))
-    })
-}
-
-fn plugin_launch_config_path() -> Result<PathBuf> {
-    #[cfg(target_os = "macos")]
-    {
-        let home = std::env::var_os("HOME")
-            .ok_or_else(|| CliError::Other("HOME is not set".to_string()))?;
-        return Ok(PathBuf::from(home)
-            .join("Library")
-            .join("Application Support")
-            .join("rhino-cli")
-            .join("RhinoCliPlugin")
-            .join("config.json"));
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        let appdata = std::env::var_os("APPDATA")
-            .ok_or_else(|| CliError::Other("APPDATA is not set".to_string()))?;
-        return Ok(PathBuf::from(appdata)
-            .join("rhino-cli")
-            .join("RhinoCliPlugin")
-            .join("config.json"));
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    {
-        let home = std::env::var_os("HOME")
-            .ok_or_else(|| CliError::Other("HOME is not set".to_string()))?;
-        Ok(PathBuf::from(home)
-            .join(".config")
-            .join("rhino-cli")
-            .join("RhinoCliPlugin")
-            .join("config.json"))
-    }
+    launch_app(&args.app, startup_script)
 }
 
 pub fn shutdown(ctx: &CommandContext, args: ShutdownArgs) -> Result<()> {
@@ -219,43 +142,6 @@ pub fn screenshot(ctx: &CommandContext, args: ScreenshotArgs) -> Result<()> {
 pub fn app_running(app: &str) -> Result<bool> {
     validate_app_name(app)?;
     is_app_running(app)
-}
-
-fn is_plugin_ready(ctx: &CommandContext) -> bool {
-    ctx.client()
-        .call("system.ping", json!(null))
-        .map(|result| result.get("pong").and_then(|value| value.as_bool()) == Some(true))
-        .unwrap_or(false)
-}
-
-fn wait_until_ready(ctx: &CommandContext, timeout: Duration) -> Result<()> {
-    let started = Instant::now();
-    let interval = Duration::from_millis(500);
-    let mut last_error: Option<String> = None;
-
-    while started.elapsed() < timeout {
-        match ctx.client().call("system.ping", json!(null)) {
-            Ok(result) if result.get("pong").and_then(|value| value.as_bool()) == Some(true) => {
-                return Ok(());
-            }
-            Ok(_) => {
-                last_error = Some("system.ping did not return pong=true".to_string());
-            }
-            Err(error) => {
-                last_error = Some(error.to_string());
-            }
-        }
-        std::thread::sleep(interval);
-    }
-
-    let details = last_error
-        .map(|error| format!(" Last error: {error}"))
-        .unwrap_or_default();
-    Err(CliError::Timeout(format!(
-        "Rhino plugin was not ready within {}s.{}",
-        timeout.as_secs(),
-        details
-    )))
 }
 
 fn wait_until_not_running(app: &str, timeout: Duration) -> Result<()> {

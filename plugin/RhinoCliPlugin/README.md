@@ -20,7 +20,9 @@ The same artifact set is copied to Rhino's macOS plugin directory:
 1. Launch Rhino and wait for the plugin:
 
 ```bash
-rhino-cli launch --new-model --port 50061 --timeout 120
+rhino-cli plugin set-port 50061
+rhino-cli launch --new-model
+rhino-cli wait-ready --port 50061 --timeout 120
 ```
 
 2. Confirm the command history contains:

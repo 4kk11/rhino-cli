@@ -1,0 +1,57 @@
+[config]
+default_to_workspace = false
+
+[tasks.default]
+clear = true
+description = "Run test and build."
+alias = "check"
+
+[tasks.check]
+clear = true
+description = "Run test and build."
+dependencies = ["test", "build"]
+
+[tasks.test]
+clear = true
+description = "Run Rust and C# tests."
+dependencies = ["test-rust", "test-dotnet"]
+
+[tasks.build]
+clear = true
+description = "Build Rust CLI, C# server/test runner, and RhinoCliPlugin."
+dependencies = ["build-rust", "build-server", "build-test-runner", "build-plugin"]
+
+[tasks.install-cli]
+description = "Install rhino-cli from the current checkout."
+command = "cargo"
+args = ["install", "--path", "."]
+
+[tasks.test-rust]
+description = "Run Rust unit/integration tests serially."
+command = "cargo"
+args = ["test", "--", "--test-threads=1"]
+
+[tasks.test-dotnet]
+description = "Run C# server tests."
+command = "dotnet"
+args = ["test", "server/RhinoCli.Server.Tests/RhinoCli.Server.Tests.csproj"]
+
+[tasks.build-rust]
+description = "Build the Rust CLI."
+command = "cargo"
+args = ["build"]
+
+[tasks.build-server]
+description = "Build RhinoCli.Server."
+command = "dotnet"
+args = ["build", "server/RhinoCli.Server/RhinoCli.Server.csproj"]
+
+[tasks.build-test-runner]
+description = "Build RhinoCli.TestRunner."
+command = "dotnet"
+args = ["build", "server/RhinoCli.TestRunner/RhinoCli.TestRunner.csproj"]
+
+[tasks.build-plugin]
+description = "Build and install the bundled RhinoCliPlugin into Rhino's plugin directory."
+command = "dotnet"
+args = ["build", "plugin/RhinoCliPlugin/RhinoCliPlugin.csproj"]

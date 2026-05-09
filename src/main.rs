@@ -109,7 +109,7 @@ enum Commands {
         #[arg(long)]
         template: Option<std::path::PathBuf>,
     },
-    /// Launch Rhino and wait until the plugin answers system.ping.
+    /// Launch Rhino. Use `rhino-cli wait-ready --port <PORT>` afterwards to wait for the plugin.
     Launch {
         /// Rhino application name.
         #[arg(long, default_value = "Rhino 8")]
@@ -117,15 +117,17 @@ enum Commands {
         /// Ask Rhino to quit before launching.
         #[arg(long)]
         restart: bool,
-        /// Return immediately after launching Rhino.
-        #[arg(long)]
-        no_wait: bool,
         /// Open a new model at startup instead of leaving Rhino's start window active.
         #[arg(long)]
         new_model: bool,
         /// Optional Rhino command script passed via -runscript.
         #[arg(long)]
         script: Option<String>,
+    },
+    /// Manage the bundled RhinoCliPlugin's launch config.
+    Plugin {
+        #[command(subcommand)]
+        command: PluginCommand,
     },
     /// Ask Rhino to quit and wait until it exits.
     Shutdown {
@@ -151,6 +153,17 @@ enum Commands {
         #[arg(long)]
         no_shadow: bool,
     },
+}
+
+#[derive(Debug, Subcommand)]
+enum PluginCommand {
+    /// Set the port the bundled RhinoCliPlugin listens on at startup.
+    SetPort {
+        /// TCP port (1-65535).
+        port: u16,
+    },
+    /// Print the current bundled RhinoCliPlugin launch config.
+    ShowConfig,
 }
 
 fn main() {
@@ -224,20 +237,21 @@ fn run(cli: Cli) -> Result<()> {
         Commands::Launch {
             app,
             restart,
-            no_wait,
             new_model,
             script,
         } => rhino_cli::commands::rhino::launch(
             &ctx,
             LaunchArgs {
                 app,
-                timeout: Duration::from_secs(cli.timeout.unwrap_or(120)),
                 restart,
-                no_wait,
                 new_model,
                 script,
             },
         ),
+        Commands::Plugin { command } => match command {
+            PluginCommand::SetPort { port } => rhino_cli::commands::plugin::set_port(&ctx, port),
+            PluginCommand::ShowConfig => rhino_cli::commands::plugin::show_config(&ctx),
+        },
         Commands::Shutdown { app } => rhino_cli::commands::rhino::shutdown(
             &ctx,
             ShutdownArgs {
@@ -272,7 +286,9 @@ fn print_error(error: &CliError, host: &str, port: u16) {
             eprintln!(
                 "Rhino is not reachable at {host}:{port}. Start Rhino and RhinoCliPlugin, then retry:"
             );
-            eprintln!("  rhino-cli launch --new-model --port {port} --timeout 120");
+            eprintln!("  rhino-cli plugin set-port {port}");
+            eprintln!("  rhino-cli launch --new-model");
+            eprintln!("  rhino-cli wait-ready --port {port} --timeout 120");
             eprintln!();
             eprintln!(
                 "If Rhino is already running, verify that RhinoCliPlugin is installed and listening on this port."

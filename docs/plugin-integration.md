@@ -150,8 +150,8 @@ public sealed class MyPlugin : PlugIn
 
 ```bash
 rhino-cli doctor --port 50063
-rhino-cli launch --new-model --port 50063 --timeout 120
-rhino-cli wait-ready --port 50063 --timeout 30
+rhino-cli launch --new-model
+rhino-cli wait-ready --port 50063 --timeout 120
 rhino-cli ping --port 50063 --verbose
 rhino-cli capabilities --port 50063
 rhino-cli call myplugin.do_thing '{}' --port 50063 --pretty
@@ -161,6 +161,8 @@ rhino-cli history --tail 50 --port 50063
 rhino-cli screenshot --out /tmp/rhino-myplugin.png
 rhino-cli shutdown
 ```
+
+`rhino-cli launch` only starts Rhino — it has no port concept. Configure your plugin's port via your own settings/env (the example above hard-codes `50063` in the C# constructor) and use `wait-ready --port <PORT>` to block until the plugin answers `system.ping`. `rhino-cli plugin set-port <PORT>` is specific to the **bundled** RhinoCliPlugin and does not affect third-party plugins.
 
 ## Notes
 

@@ -42,10 +42,9 @@ pub fn run(ctx: &CommandContext, args: DoctorArgs) -> Result<()> {
             println!("Reason: {error}");
             println!();
             println!("Suggested:");
-            println!(
-                "  rhino-cli launch --new-model --port {} --timeout 120",
-                ctx.port
-            );
+            println!("  rhino-cli plugin set-port {}", ctx.port);
+            println!("  rhino-cli launch --new-model");
+            println!("  rhino-cli wait-ready --port {} --timeout 120", ctx.port);
             println!("  dotnet build plugin/RhinoCliPlugin/RhinoCliPlugin.csproj");
             println!();
             println!("If Rhino is already running, RhinoCliPlugin may not be installed, loaded, or listening on this port.");

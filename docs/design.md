@@ -282,10 +282,21 @@ rhino-cli capabilities [--method <METHOD>] [--format text|json|markdown|agent]
 #### 4.2.7 `launch`
 
 ```
-rhino-cli launch [--app "Rhino 8"] [--restart] [--no-wait] [--new-model] [--script "<RUNSCRIPT>"] [--timeout 120]
+rhino-cli launch [--app "Rhino 8"] [--restart] [--new-model] [--script "<RUNSCRIPT>"]
 ```
 
-macOS 上で Rhino を起動し、対象ポートの `system.ping` が成功するまで待つ。起動前に RhinoCliPlugin の launch config へ `--port` を書き込むため、同梱プラグインは CLI が待つポートで listen する。既に応答可能な場合は即成功する。既に Rhino が起動中で対象ポートにプラグインがいない場合、設定は実行中プロセスへ反映できないため `--restart --port <PORT>` を要求する。`--restart` は既存 Rhino に終了を依頼してから起動し直す。`--new-model` は Rhino 起動画面を残さず新規モデルウィンドウまで開くため、起動時に harmless な `-runscript _NoEcho` を渡す。`--script` は Rhino の `-runscript` 引数として渡す。既に Rhino が起動済みの場合、起動時引数は適用できないため `--new-model` / `--script` は `--restart` と併用する。
+macOS 上で Rhino を起動するだけのコマンド。port 概念は持たず、readiness 待ちもしない。RPC が応答するまで待つ必要がある場合は `rhino-cli wait-ready --port <PORT>` を別途呼ぶ。既に Rhino が起動済みの場合は no-op で成功する（起動時引数 `--new-model` / `--script` を要求された場合は `--restart` 併用を促すエラーを返す）。`--restart` は AppleScript 経由で既存 Rhino に終了を依頼してから起動し直す。`--new-model` は Rhino 起動画面を残さず新規モデルウィンドウまで開くため、起動時に harmless な `-runscript _NoEcho` を渡す。`--script` は Rhino の `-runscript` 引数として渡す。
+
+bundled RhinoCliPlugin が listen するポートは `rhino-cli plugin set-port <PORT>` で事前に設定する（§4.2.x 参照）。サードパーティ plugin の port 設定はこの CLI のスコープ外で、各 plugin が自身の手段（env / 設定ファイル / ハードコード等）で解決する。
+
+#### 4.2.x `plugin set-port` / `plugin show-config`
+
+```
+rhino-cli plugin set-port <PORT>
+rhino-cli plugin show-config
+```
+
+bundled RhinoCliPlugin の launch config (`~/Library/Application Support/rhino-cli/RhinoCliPlugin/config.json` on macOS) を書き換え／表示する。`set-port` は次回 Rhino ロード時に反映される。`show-config` は現在の内容と path を出力する（未生成なら fallback 仕様を案内）。サードパーティ plugin には影響しない。
 
 #### 4.2.8 `shutdown`
 

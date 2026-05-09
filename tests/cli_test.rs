@@ -289,9 +289,14 @@ fn connection_refused_prints_rhino_start_hint() {
         .assert()
         .code(2)
         .stderr(
-            predicate::str::contains("Rhino is not reachable").and(predicate::str::contains(
-                format!("rhino-cli launch --new-model --port {port} --timeout 120"),
-            )),
+            predicate::str::contains("Rhino is not reachable")
+                .and(predicate::str::contains(format!(
+                    "rhino-cli plugin set-port {port}"
+                )))
+                .and(predicate::str::contains("rhino-cli launch --new-model"))
+                .and(predicate::str::contains(format!(
+                    "rhino-cli wait-ready --port {port} --timeout 120"
+                ))),
         );
 }
 

@@ -3,6 +3,7 @@ pub mod capabilities;
 pub mod doctor;
 pub mod list_methods;
 pub mod ping;
+pub mod plugin;
 pub mod rhino;
 pub mod rhino_rpc;
 pub mod wait_ready;
