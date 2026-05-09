@@ -294,6 +294,14 @@ rhino-cli history --clear
 
 プラグイン側の `rhino.command_history` / `rhino.clear_command_history` を呼ぶ。既定では command history のテキストだけを stdout に出す。`--json` または `--pretty` で line count や truncation 情報を含む JSON を出す。
 
+#### 4.2.9 `screenshot`
+
+```
+rhino-cli screenshot [--app "Rhino 8"] [--out <PNG>] [--window-id <ID>] [--no-activate] [--no-shadow]
+```
+
+macOS のウィンドウキャプチャとして Rhino アプリの前面ウィンドウを PNG に保存する。RPC サーバやプラグイン handler には依存しないため、Rhino が起動していれば `run-script` や `history` の結果と合わせて AI エージェントが視覚的にデバッグできる。`--out` 未指定時は `rhino-screenshot-<unix>.png` をカレントディレクトリに作る。`--no-shadow` は macOS のウィンドウ影を除外し、`--window-id` は既知の window id を直接指定する。実行端末には macOS の Screen Recording 権限が必要。
+
 ### 4.3 終了コード
 
 | コード | 意味 |

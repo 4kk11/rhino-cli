@@ -37,6 +37,7 @@ rhino-cli call minimal.hello --port 50099
 rhino-cli call minimal.echo '{"value":42}' --port 50099
 rhino-cli run-script "_Zoom _Extents" --port 50099
 rhino-cli history --tail 20 --port 50099
+rhino-cli screenshot --out /tmp/rhino-minimal.png
 rhino-cli history --clear --port 50099
 rhino-cli shutdown
 ```

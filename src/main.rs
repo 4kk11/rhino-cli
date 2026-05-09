@@ -6,7 +6,7 @@ use rhino_cli::client::{
     DEFAULT_CONNECT_TIMEOUT_SECS, DEFAULT_HOST, DEFAULT_PORT, DEFAULT_TIMEOUT_SECS,
 };
 use rhino_cli::commands::call::CallArgs;
-use rhino_cli::commands::rhino::{LaunchArgs, ShutdownArgs};
+use rhino_cli::commands::rhino::{LaunchArgs, ScreenshotArgs, ShutdownArgs};
 use rhino_cli::commands::rhino_rpc::{HistoryArgs, RunScriptArgs};
 use rhino_cli::commands::CommandContext;
 use rhino_cli::error::{CliError, Result};
@@ -107,6 +107,24 @@ enum Commands {
         #[arg(long, default_value = "Rhino 8")]
         app: String,
     },
+    /// Capture the Rhino window as a PNG screenshot.
+    Screenshot {
+        /// Rhino application name.
+        #[arg(long, default_value = "Rhino 8")]
+        app: String,
+        /// Output PNG path. Defaults to rhino-screenshot-<unix>.png.
+        #[arg(long)]
+        out: Option<std::path::PathBuf>,
+        /// Do not activate Rhino before capturing the front window.
+        #[arg(long)]
+        no_activate: bool,
+        /// Capture a specific macOS window id instead of Rhino's front window.
+        #[arg(long)]
+        window_id: Option<u64>,
+        /// Capture without the macOS window shadow.
+        #[arg(long)]
+        no_shadow: bool,
+    },
 }
 
 fn main() {
@@ -188,6 +206,22 @@ fn run(cli: Cli) -> Result<()> {
             ShutdownArgs {
                 app,
                 timeout: Duration::from_secs(cli.timeout.unwrap_or(30)),
+            },
+        ),
+        Commands::Screenshot {
+            app,
+            out,
+            no_activate,
+            window_id,
+            no_shadow,
+        } => rhino_cli::commands::rhino::screenshot(
+            &ctx,
+            ScreenshotArgs {
+                app,
+                out,
+                no_activate,
+                window_id,
+                no_shadow,
             },
         ),
     }

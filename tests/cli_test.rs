@@ -298,3 +298,12 @@ fn history_clear_calls_clear_method() {
         .stdout("");
     handle.join().unwrap();
 }
+
+#[test]
+fn screenshot_rejects_invalid_app_name_before_os_capture() {
+    bin()
+        .args(["screenshot", "--app", "Rhino 8; rm -rf /"])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("invalid Rhino app name"));
+}
