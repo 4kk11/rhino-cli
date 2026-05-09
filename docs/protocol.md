@@ -134,7 +134,7 @@ CLI は **connect-per-call**:
 
 ### 3.5 参照 Rhino automation メソッド
 
-`examples/MinimalPlugin` は AI エージェント用の参照 handler として、以下の `rhino.*` メソッドを登録する。`RhinoCli.Server` の built-in ではないため、既存プラグインへ組み込む場合は同等の handler を登録する。
+`plugin/RhinoCliPlugin` は rhino-cli 同梱のコアプラグインとして、AI エージェント用の `rhino.*` handler を登録する。`RhinoCli.Server` の built-in ではないため、既存プラグインへ組み込む場合は同等の handler を登録する。
 
 | Method | Params | 説明 |
 |--------|--------|------|

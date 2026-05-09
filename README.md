@@ -2,7 +2,7 @@
 
 Rust 製の汎用 Rhino プラグイン用 RPC クライアント + C# サーバライブラリ。任意の Rhino プラグインに JSON-RPC 2.0 over TCP インタフェースを追加し、CLI から呼び出して E2E テスト・自動化・スクリプティングを実現する。
 
-> **Status**: Pre-alpha MVP. Rust CLI, C# server library, mock E2E runner, and MinimalPlugin example are implemented.
+> **Status**: Pre-alpha MVP. Rust CLI, C# server library, mock E2E runner, and RhinoCliPlugin are implemented.
 
 ## 構成
 
@@ -10,7 +10,7 @@ Rust 製の汎用 Rhino プラグイン用 RPC クライアント + C# サーバ
 |------|------|
 | `src/` | Rust 製 CLI バイナリ (`rhino-cli`) |
 | `server/RhinoCli.Server/` | C# クラスライブラリ (TCP server + Router + 組込 handler) |
-| `examples/MinimalPlugin/` | 最小プラグイン例 (RhinoCli.Server を組み込む参考) |
+| `plugin/RhinoCliPlugin/` | rhino-cli 同梱の Rhino automation プラグイン |
 | `docs/design.md` | 設計書 |
 | `docs/tasks.md` | 実装タスクリスト |
 | `docs/protocol.md` | JSON-RPC 2.0 プロトコル詳細 |
@@ -80,29 +80,29 @@ rhino-cli shutdown
 
 `screenshot` captures the Rhino app window itself as a PNG on macOS. It is useful for autonomous visual debugging after `run-script`; use `--no-shadow` for tighter images, `--no-activate` when you have already focused Rhino, and `--window-id` for a known macOS window id. macOS Screen Recording permission is required for the terminal process running `rhino-cli`.
 
-## MinimalPlugin
+## RhinoCliPlugin
 
-Build the Rhino example:
+Build the Rhino plugin:
 
 ```bash
-dotnet build examples/MinimalPlugin/MinimalPlugin.csproj
+dotnet build plugin/RhinoCliPlugin/RhinoCliPlugin.csproj
 ```
 
 The build copies the plugin artifacts to:
 
 ```text
-~/Library/Application Support/McNeel/Rhinoceros/8.0/MacPlugins/MinimalPlugin
+~/Library/Application Support/McNeel/Rhinoceros/8.0/MacPlugins/RhinoCliPlugin
 ```
 
 Launch Rhino 8, then call:
 
 ```bash
 rhino-cli launch --new-model --port 50099 --timeout 120
-rhino-cli call minimal.hello --port 50099
+rhino-cli call rhino_cli.hello --port 50099
 rhino-cli new-model --port 50099
 rhino-cli run-script "_Zoom _Extents" --port 50099
 rhino-cli history --tail 20 --port 50099
-rhino-cli screenshot --out /tmp/rhino-minimal.png
+rhino-cli screenshot --out /tmp/rhino-cli-plugin.png
 rhino-cli shutdown
 ```
 

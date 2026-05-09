@@ -3,9 +3,9 @@ using Rhino;
 using Rhino.PlugIns;
 using RhinoCli.Server;
 
-namespace MinimalPlugin;
+namespace RhinoCliPlugin;
 
-public sealed class MinimalPlugin : PlugIn
+public sealed class RhinoCliPlugin : PlugIn
 {
     private const int Port = 50099;
     private TcpServer? _server;
@@ -17,19 +17,19 @@ public sealed class MinimalPlugin : PlugIn
         try
         {
             RhinoApp.CommandWindowCaptureEnabled = true;
-            var registry = new HandlerRegistry("MinimalPlugin", Port);
-            registry.Register("minimal.hello", new HelloHandler());
-            registry.Register("minimal.echo", new EchoHandler());
+            var registry = new HandlerRegistry("RhinoCliPlugin", Port);
+            registry.Register("rhino_cli.hello", new HelloHandler());
+            registry.Register("rhino_cli.echo", new EchoHandler());
             registry.Register("rhino.run_script", new RunScriptHandler());
             registry.Register("rhino.new_model", new NewModelHandler());
             registry.Register("rhino.command_history", new CommandHistoryHandler());
             registry.Register("rhino.clear_command_history", new ClearCommandHistoryHandler());
 
-            _server = new TcpServer(Port, registry, "MinimalPlugin", InvokeOnUiThread);
-            _server.OnError += message => RhinoApp.WriteLine($"MinimalPlugin rhino-cli: {message}");
+            _server = new TcpServer(Port, registry, "RhinoCliPlugin", InvokeOnUiThread);
+            _server.OnError += message => RhinoApp.WriteLine($"RhinoCliPlugin: {message}");
             _server.Start();
 
-            var message = $"MinimalPlugin rhino-cli server listening on 127.0.0.1:{_server.ActualPort}";
+            var message = $"RhinoCliPlugin server listening on 127.0.0.1:{_server.ActualPort}";
             RhinoCliHistoryBuffer.Append(message);
             RhinoApp.WriteLine(message);
             return LoadReturnCode.Success;

@@ -1,7 +1,7 @@
 using System.Text.Json.Nodes;
 using RhinoCli.Server;
 
-namespace MinimalPlugin;
+namespace RhinoCliPlugin;
 
 public sealed class HelloHandler : IHandler
 {

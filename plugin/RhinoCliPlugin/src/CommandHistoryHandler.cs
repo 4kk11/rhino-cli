@@ -4,7 +4,7 @@ using System.Text.Json.Nodes;
 using Rhino;
 using RhinoCli.Server;
 
-namespace MinimalPlugin;
+namespace RhinoCliPlugin;
 
 public sealed class CommandHistoryHandler : IHandler
 {

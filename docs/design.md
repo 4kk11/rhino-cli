@@ -96,10 +96,10 @@ rhino-cli/
 │           ├── PingHandler.cs
 │           ├── ListMethodsHandler.cs
 │           └── ListPluginsHandler.cs
-├── examples/
-│   └── MinimalPlugin/            # RhinoCli.Server を組み込む最小例
-│       ├── MinimalPlugin.csproj
-│       ├── MinimalPlugin.cs
+├── plugin/
+│   └── RhinoCliPlugin/           # rhino-cli 同梱の Rhino automation plugin
+│       ├── RhinoCliPlugin.csproj
+│       ├── src/RhinoCliPlugin.cs
 │       └── HelloHandler.cs
 ├── tests/
 │   └── e2e_mock.rs               # CLI ↔ mock TCP server の Rust 統合テスト
@@ -502,7 +502,7 @@ C# サーバ側はコンフィグファイルを持たない。プラグイン�
 
 - **ユニット**: `MessageRouter.HandleMessage` の入力 → 出力対応 (UI スレッド要らない)
 - **統合**: `RhinoCli.Server` 単独では Rhino 依存の handler は呼べないので、`PingHandler` / `ListMethodsHandler` のみテスト
-- プラグイン組込テストは `examples/MinimalPlugin/` で目視確認
+- プラグイン組込テストは `plugin/RhinoCliPlugin/` で目視確認
 
 ### 8.3 E2E (実 Rhino)
 

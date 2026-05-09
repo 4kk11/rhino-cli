@@ -62,7 +62,7 @@ fn list_methods_prints_one_method_per_line() {
         json!({
             "jsonrpc": "2.0",
             "id": request["id"].clone(),
-            "result": {"methods": ["system.ping", "rpc.list_methods", "minimal.hello"]}
+            "result": {"methods": ["system.ping", "rpc.list_methods", "rhino_cli.hello"]}
         })
     });
 
@@ -70,14 +70,14 @@ fn list_methods_prints_one_method_per_line() {
         .args(["list-methods", "--port", &port.to_string()])
         .assert()
         .success()
-        .stdout("system.ping\nrpc.list_methods\nminimal.hello\n");
+        .stdout("system.ping\nrpc.list_methods\nrhino_cli.hello\n");
     handle.join().unwrap();
 }
 
 #[test]
 fn call_sends_positional_json_params_and_prints_result() {
     let (port, handle) = spawn_rpc_server(|request| {
-        assert_eq!(request["method"], "minimal.echo");
+        assert_eq!(request["method"], "rhino_cli.echo");
         assert_eq!(request["params"], json!({"message": "hello"}));
         json!({
             "jsonrpc": "2.0",
@@ -89,7 +89,7 @@ fn call_sends_positional_json_params_and_prints_result() {
     bin()
         .args([
             "call",
-            "minimal.echo",
+            "rhino_cli.echo",
             "{\"message\":\"hello\"}",
             "--port",
             &port.to_string(),
@@ -114,7 +114,7 @@ fn call_builds_object_params_from_key_value_flags() {
     bin()
         .args([
             "call",
-            "minimal.echo",
+            "rhino_cli.echo",
             "--param",
             "count=3",
             "--param",

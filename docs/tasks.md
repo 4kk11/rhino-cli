@@ -182,7 +182,7 @@ Rhino 非依存の純粋ライブラリ。`MessageRouter` / `HandlerRegistry` / 
 ### 🔴 Red
 
 - [x] **6-1**: `tests/e2e_mock.rs`
-  - `examples/MinimalPlugin/` を Rhino なしで動かすことは難しいので、代わりに **C# console runner** (`server/RhinoCli.TestRunner/`) を作って、`InvokeOnUiThread` の代わりに `Action.Invoke()` を直接呼ぶダミー実装で TCP server だけ立てる
+  - `plugin/RhinoCliPlugin/` を Rhino なしで動かすことは難しいので、代わりに **C# console runner** (`server/RhinoCli.TestRunner/`) を作って、`InvokeOnUiThread` の代わりに `Action.Invoke()` を直接呼ぶダミー実装で TCP server だけ立てる
   - Rust 側は `Command::new("dotnet").args(...)` で起動し、port を待ち、call を試す
   - シナリオ: ping、list-methods、不明メソッド (-32601)、parse error (`echo` で不正 JSON 投げて -32700 確認)
 
@@ -198,22 +198,22 @@ Rhino 非依存の純粋ライブラリ。`MessageRouter` / `HandlerRegistry` / 
 
 ---
 
-## Phase 7: 例 — MinimalPlugin ✅ 完了
+## Phase 7: RhinoCliPlugin ✅ 完了
 
 実際の Rhino プラグインから RhinoCli.Server を組み込む参考例。**ビルドのみ確認**、実起動は手動。
 
 ### 🟢 Green
 
-- [x] **7-1**: `examples/MinimalPlugin/MinimalPlugin.csproj`
+- [x] **7-1**: `plugin/RhinoCliPlugin/RhinoCliPlugin.csproj`
   - net7.0、RhinoCommon 依存、`RhinoCli.Server` を ProjectReference
-- [x] **7-2**: `MinimalPlugin.cs`
+- [x] **7-2**: `RhinoCliPlugin.cs`
   - `OnLoad` で `TcpServer` 起動 (port 50099)
-  - 1 つだけ独自 handler `minimal.echo` (params をそのまま result に)
-- [x] **7-3**: `MinimalPlugin/HelloHandler.cs` (`minimal.hello` → `{"hello":"world"}`)
-- [x] **7-4**: `examples/MinimalPlugin/README.md` で起動・接続手順
+  - 1 つだけ診断 handler `rhino_cli.echo` (params をそのまま result に)
+- [x] **7-3**: `RhinoCliPlugin/HelloHandler.cs` (`rhino_cli.hello` → `{"hello":"world"}`)
+- [x] **7-4**: `plugin/RhinoCliPlugin/README.md` で起動・接続手順
 - [x] **7-5**: Rhino を実際に立ち上げて手動確認:
   - `rhino-cli ping --port 50099`
-  - `rhino-cli call minimal.hello --port 50099`
+  - `rhino-cli call rhino_cli.hello --port 50099`
 
 ---
 
@@ -247,7 +247,7 @@ Phase 3 (CLI サブコマンド)
 Phase 6 (Rust ↔ C# E2E、Rhino なし)
    │
    ▼
-Phase 7 (MinimalPlugin、Rhino あり 手動)
+Phase 7 (RhinoCliPlugin、Rhino あり 手動)
    │
    ▼
 Phase 8 (docs + 配布)
@@ -289,10 +289,11 @@ Phase 6 で初めて両者が出会う。
 | 2026-05-09 | 0 | 設計書・プロトコル仕様・タスクリスト作成完了 |
 | 2026-05-09 | 1-3 | Rust protocol/client/CLI 実装、mock TCP integration test 通過 |
 | 2026-05-09 | 4-6 | C# server library、built-in handlers、Rust↔C# E2E runner 実装 |
-| 2026-05-09 | 7-8 | MinimalPlugin build、plugin integration docs、cargo install 確認 |
-| 2026-05-09 | extra | MinimalPlugin PostBuild コピー、Rhino launch/shutdown CLI 追加 |
-| 2026-05-09 | 7 | `rhino-cli launch --port 50099` → `call minimal.hello` → `shutdown` 実機確認 |
-| 2026-05-09 | extra | Rhino run-script/history CLI と MinimalPlugin handlers 追加 |
+| 2026-05-09 | 7-8 | RhinoCliPlugin build、plugin integration docs、cargo install 確認 |
+| 2026-05-09 | extra | RhinoCliPlugin PostBuild コピー、Rhino launch/shutdown CLI 追加 |
+| 2026-05-09 | 7 | `rhino-cli launch --port 50099` → `call rhino_cli.hello` → `shutdown` 実機確認 |
+| 2026-05-09 | extra | Rhino run-script/history CLI と RhinoCliPlugin handlers 追加 |
 | 2026-05-09 | extra | Rhino window screenshot CLI 追加 |
 | 2026-05-09 | verify | `screenshot` 実機実行で macOS Screen Recording 権限チェックまで確認 |
 | 2026-05-09 | extra | `launch --new-model` と `rhino.new_model` handler 追加 |
+| 2026-05-09 | extra | `examples/MinimalPlugin` を `plugin/RhinoCliPlugin` へ移動し、コア同梱プラグインとして改名 |

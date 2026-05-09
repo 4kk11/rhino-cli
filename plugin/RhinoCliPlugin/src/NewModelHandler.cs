@@ -3,7 +3,7 @@ using Rhino;
 using Rhino.ApplicationSettings;
 using RhinoCli.Server;
 
-namespace MinimalPlugin;
+namespace RhinoCliPlugin;
 
 public sealed class NewModelHandler : IHandler
 {

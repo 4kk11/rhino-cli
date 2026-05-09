@@ -160,4 +160,4 @@ rhino-cli shutdown
 - `launch` and `shutdown` currently automate Rhino on macOS with `open` and AppleScript.
 - `launch --new-model` opens a modeling window at startup via Rhino's launch-time `-runscript` path. If Rhino is already running, use `--restart` to apply it.
 - `screenshot` captures the Rhino window on macOS and does not require any plugin RPC handler. The terminal running `rhino-cli` needs macOS Screen Recording permission.
-- `new-model`, `run-script`, and `history` require the plugin to register `rhino.new_model`, `rhino.run_script`, `rhino.command_history`, and `rhino.clear_command_history`. `examples/MinimalPlugin` provides reference handlers.
+- `new-model`, `run-script`, and `history` require the plugin to register `rhino.new_model`, `rhino.run_script`, `rhino.command_history`, and `rhino.clear_command_history`. `plugin/RhinoCliPlugin` provides the core reference handlers.

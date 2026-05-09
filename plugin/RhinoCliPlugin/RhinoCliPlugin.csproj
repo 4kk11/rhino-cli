@@ -3,12 +3,12 @@
     <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>MinimalPlugin</AssemblyName>
-    <RootNamespace>MinimalPlugin</RootNamespace>
+    <AssemblyName>RhinoCliPlugin</AssemblyName>
+    <RootNamespace>RhinoCliPlugin</RootNamespace>
     <TargetExt>.rhp</TargetExt>
     <EnableDynamicLoading>true</EnableDynamicLoading>
-    <AssemblyTitle>MinimalPlugin</AssemblyTitle>
-    <AssemblyDescription>Minimal Rhino plugin using RhinoCli.Server.</AssemblyDescription>
+    <AssemblyTitle>RhinoCliPlugin</AssemblyTitle>
+    <AssemblyDescription>Core Rhino plugin for rhino-cli automation handlers.</AssemblyDescription>
     <AssemblyVersion>0.1.0</AssemblyVersion>
     <FileVersion>0.1.0</FileVersion>
   </PropertyGroup>
@@ -22,19 +22,22 @@
   </ItemGroup>
 
   <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
-    <MyDestinationFolder>$(APPDATA)\McNeel\Rhinoceros\myplugins\MinimalPlugin</MyDestinationFolder>
+    <MyDestinationFolder>$(APPDATA)\McNeel\Rhinoceros\myplugins\RhinoCliPlugin</MyDestinationFolder>
+    <OldDestinationFolder>$(APPDATA)\McNeel\Rhinoceros\myplugins\MinimalPlugin</OldDestinationFolder>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(OS)' != 'Windows_NT'">
-    <MyDestinationFolder>$(HOME)/Library/Application Support/McNeel/Rhinoceros/8.0/MacPlugins/MinimalPlugin</MyDestinationFolder>
+    <MyDestinationFolder>$(HOME)/Library/Application Support/McNeel/Rhinoceros/8.0/MacPlugins/RhinoCliPlugin</MyDestinationFolder>
+    <OldDestinationFolder>$(HOME)/Library/Application Support/McNeel/Rhinoceros/8.0/MacPlugins/MinimalPlugin</OldDestinationFolder>
   </PropertyGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <ItemGroup>
       <PluginFiles Include="$(TargetDir)*.*" />
     </ItemGroup>
+    <RemoveDir Directories="$(OldDestinationFolder)" Condition="Exists('$(OldDestinationFolder)')" />
     <MakeDir Directories="$(MyDestinationFolder)" />
     <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(MyDestinationFolder)" />
-    <Message Text="MinimalPlugin installed to $(MyDestinationFolder)" Importance="high" />
+    <Message Text="RhinoCliPlugin installed to $(MyDestinationFolder)" Importance="high" />
   </Target>
 </Project>

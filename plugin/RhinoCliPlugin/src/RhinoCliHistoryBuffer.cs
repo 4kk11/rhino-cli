@@ -1,4 +1,4 @@
-namespace MinimalPlugin;
+namespace RhinoCliPlugin;
 
 internal static class RhinoCliHistoryBuffer
 {
