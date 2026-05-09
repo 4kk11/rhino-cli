@@ -260,6 +260,22 @@ rhino-cli wait-ready [--timeout 30]
 
 サーバ起動を待つ。指定秒間 100ms 間隔で `ping` を試行。`--timeout` の既定は `--connect-timeout` ではなく専用に 30 秒。Rhino 起動直後の race 用。
 
+#### 4.2.5 `launch`
+
+```
+rhino-cli launch [--app "Rhino 8"] [--restart] [--no-wait] [--script "<RUNSCRIPT>"] [--timeout 120]
+```
+
+macOS 上で Rhino を起動し、対象ポートの `system.ping` が成功するまで待つ。既に応答可能な場合は即成功する。`--restart` は既存 Rhino に終了を依頼してから起動し直す。`--script` は Rhino の `-runscript` 引数として渡す。
+
+#### 4.2.6 `shutdown`
+
+```
+rhino-cli shutdown [--app "Rhino 8"] [--timeout 30]
+```
+
+macOS の AppleScript 経由で Rhino に終了を依頼し、プロセス終了まで待つ。保存確認ダイアログが残る場合はタイムアウトする。
+
 ### 4.3 終了コード
 
 | コード | 意味 |
