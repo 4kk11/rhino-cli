@@ -1,0 +1,22 @@
+# Rust
+/target
+**/*.rs.bk
+Cargo.lock.bak
+
+# .NET
+**/bin/
+**/obj/
+*.user
+*.suo
+.vs/
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local config
+*.local

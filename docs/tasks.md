@@ -1,0 +1,289 @@
+# rhino-cli 実装タスクリスト
+
+| 項目 | 内容 |
+|------|------|
+| 対象 | rhino-cli (Rust CLI) + RhinoCli.Server (C# library) |
+| 設計書 | `docs/design.md` |
+| プロトコル | `docs/protocol.md` |
+| 作成日 | 2026-05-09 |
+| テスト方針 | TDD は protocol/router など純ロジックに限定。TCP I/O や Rhino UI スレッド依存箇所は実装後の統合テスト |
+| 進捗管理 | チェックボックス `- [ ]` を `- [x]` に更新、Phase ヘッダに ✅ 完了 を追記 |
+
+---
+
+## Phase 0: スキャフォールド ✅ 完了 (本ドキュメント生成と同時)
+
+- [x] **0-1**: ディレクトリ作成 (`src/commands`, `server/RhinoCli.Server/Handlers`, `examples`, `tests`, `docs`)
+- [x] **0-2**: `README.md` 作成
+- [x] **0-3**: `LICENSE` 作成 (MIT)
+- [x] **0-4**: `.gitignore` 作成
+- [x] **0-5**: `docs/design.md` 作成
+- [x] **0-6**: `docs/protocol.md` 作成
+- [x] **0-7**: `docs/tasks.md` 作成 (本ファイル)
+
+---
+
+## Phase 1: Rust プロトコル層 (純ロジック)
+
+JSON-RPC 2.0 のシリアライズ/パースだけを担当。TCP は触らない。
+
+### 🔴 Red
+
+- [ ] **1-1**: `Cargo.toml` を作成 (deps: `serde`, `serde_json`, `clap` (derive))
+- [ ] **1-2**: `tests/protocol_test.rs` でリクエスト構築・レスポンスパースのテストを書く
+  - 正常リクエスト → JSON 文字列
+  - 正常レスポンス JSON → 構造体
+  - エラーレスポンス JSON → 構造体
+  - 不正 JSON → パースエラー
+  - `result` と `error` 両方ある不正レスポンス → エラー扱い
+  - `id` 不一致を検出する関数の挙動
+
+### 🟢 Green
+
+- [ ] **1-3**: `src/protocol.rs` を作成
+  - `Request { jsonrpc, id, method, params }`
+  - `Response { jsonrpc, id, result, error }`
+  - `RpcError { code, message, data }`
+  - `Id` enum (Number / String)
+  - `to_json_line()`, `from_json_line()` ヘルパ
+- [ ] **1-4**: `src/error.rs` を作成
+  - `CliError` 列挙 (Connect, Timeout, RpcError, Parse, Other)
+  - `From<io::Error>`, `From<serde_json::Error>` 実装
+  - `exit_code()` メソッド (設計書 4.3 のマッピング)
+
+### 🔵 Refactor
+
+- [ ] **1-5**: doc コメント追加、テスト網羅 (空 params, 大きな数値 ID 等)
+
+---
+
+## Phase 2: Rust クライアント層
+
+TCP 接続を持つ。実 Rhino には繋がない (Phase 5 で mock サーバを立ててテスト)。
+
+### 🔴 Red
+
+- [ ] **2-1**: `tests/client_test.rs` で mock TCP listener を立て、`Client::call` の挙動を検証する骨組み
+  - 正常系: 1 行 IN → 1 行 OUT
+  - サーバ側で connection refused → `CliError::Connect`
+  - サーバが応答せずタイムアウト → `CliError::Timeout`
+  - サーバが切断 → `CliError::Parse`
+  - id ミスマッチ → エラー
+
+### 🟢 Green
+
+- [ ] **2-2**: `src/client.rs` を作成
+  - `Client { host, port, connect_timeout, read_timeout }`
+  - `Client::call(method: &str, params: Value) -> Result<Value, CliError>`
+  - 中身: TcpStream::connect_timeout → write_all → BufRead.read_line → 切断
+  - id は呼び出しごとに `AtomicU64` で採番
+
+### 🔵 Refactor
+
+- [ ] **2-3**: 設定値の env var フォールバック (`RHINO_CLI_*`)
+- [ ] **2-4**: `--verbose` 用に `tracing` か `eprintln!` で I/O ログ
+
+---
+
+## Phase 3: Rust CLI サブコマンド
+
+clap でサブコマンドを定義し、Phase 2 の Client を呼び出す。
+
+### 🔴 Red
+
+- [ ] **3-1**: `tests/cli_test.rs` で `assert_cmd` を使った integration test 骨組み (mock サーバで)
+
+### 🟢 Green
+
+- [ ] **3-2**: `src/main.rs` で clap derive を使った CLI 定義
+- [ ] **3-3**: `src/commands/ping.rs`
+  - `system.ping` を呼び `pong` を確認、stderr に `pong from <server> <ver> (<latency>ms)` (verbose 時)
+- [ ] **3-4**: `src/commands/list_methods.rs`
+  - `rpc.list_methods` を呼び結果配列を改行で出力
+- [ ] **3-5**: `src/commands/call.rs`
+  - 引数優先順位: `--params-file` > `--param key=value (複数)` > 位置引数 > null
+  - 成功 `result` を stdout、`--pretty` で整形
+- [ ] **3-6**: `src/commands/wait_ready.rs`
+  - 既定 30 秒、100 ms 間隔で ping、最初の成功で 0 を返す
+- [ ] **3-7**: 終了コードを `CliError::exit_code()` で統一して `process::exit`
+
+### 🔵 Refactor
+
+- [ ] **3-8**: ヘルプ文の日本語/英語混在チェック → 英語に統一
+- [ ] **3-9**: `--quiet` `--verbose` の挙動を共通化
+
+---
+
+## Phase 4: C# サーバライブラリ (RhinoCli.Server)
+
+Rhino 非依存の純粋ライブラリ。`MessageRouter` / `HandlerRegistry` / `IHandler` のみここで完結。`TcpServer` は Rhino UI スレッド依存があるが thin wrapper にする。
+
+### 🔴 Red
+
+- [ ] **4-1**: `server/RhinoCli.Server.Tests/` プロジェクト作成 (xUnit)
+- [ ] **4-2**: `MessageRouterTests.cs`
+  - 正常: ping → 成功応答
+  - method not found → -32601
+  - parse error → -32700
+  - invalid request (no method) → -32600
+  - handler が `RpcException` を投げる → そのコード/メッセージで応答
+  - handler が generic 例外 → -32603
+
+### 🟢 Green
+
+- [ ] **4-3**: `server/RhinoCli.Server/RhinoCli.Server.csproj`
+  - net7.0、`System.Text.Json` 使用 (Newtonsoft 依存しない)
+- [ ] **4-4**: `IHandler.cs`
+- [ ] **4-5**: `RpcException.cs`
+- [ ] **4-6**: `HandlerRegistry.cs` (system/rpc.* の auto-register 含む)
+- [ ] **4-7**: `MessageRouter.cs`
+  - JSON line in/out
+  - jsonrpc=="2.0" 検証
+  - id 抽出 (number / string / 欠落)
+  - errorResponse / successResponse 整形
+  - `IHandler.Execute` を 呼ぶ部分は **delegate を取って外部に委譲** (router 自体は UI スレッドを知らない)
+- [ ] **4-8**: `TcpServer.cs`
+  - `TcpListener` ループ、`StreamReader.ReadLineAsync` クライアントループ
+  - `MessageRouter.HandleMessage` を呼ぶ delegate に `Action<IHandler, JsonNode?>` を渡す
+  - そこで `RhinoApp.InvokeOnUiThread` を呼ぶ (Rhino 依存はここだけ)
+  - `Start()` `Stop()` `Dispose()`
+
+### 🔵 Refactor
+
+- [ ] **4-9**: スレッドセーフティ確認 (handler registry は読み取り専用、TcpServer の cts 周り)
+- [ ] **4-10**: 接続エラーログを `OnError` event で外に出す
+
+---
+
+## Phase 5: 組込 handler (system / rpc.*)
+
+### 🔴 Red
+
+- [ ] **5-1**: `MessageRouterTests.cs` に system.ping, system.version, rpc.list_methods, rpc.list_plugins のテストケースを追加
+
+### 🟢 Green
+
+- [ ] **5-2**: `Handlers/PingHandler.cs`
+- [ ] **5-3**: `Handlers/VersionHandler.cs` (`system.version`)
+- [ ] **5-4**: `Handlers/ListMethodsHandler.cs`
+- [ ] **5-5**: `Handlers/ListPluginsHandler.cs` (MVP は固定 1 件)
+- [ ] **5-6**: `HandlerRegistry` ctor で上記 4 件を auto-register
+
+### 🔵 Refactor
+
+- [ ] **5-7**: `pluginId` / `version` 文字列が registry → handler に正しく流れているか確認
+
+---
+
+## Phase 6: Rust ↔ C# E2E (mock-less mini)
+
+実際に Rust CLI が C# サーバと話せることを検証する。Rhino には依存しない。
+
+### 🔴 Red
+
+- [ ] **6-1**: `tests/e2e_mock.rs`
+  - `examples/MinimalPlugin/` を Rhino なしで動かすことは難しいので、代わりに **C# console runner** (`server/RhinoCli.TestRunner/`) を作って、`InvokeOnUiThread` の代わりに `Action.Invoke()` を直接呼ぶダミー実装で TCP server だけ立てる
+  - Rust 側は `Command::new("dotnet").args(...)` で起動し、port を待ち、call を試す
+  - シナリオ: ping、list-methods、不明メソッド (-32601)、parse error (`echo` で不正 JSON 投げて -32700 確認)
+
+### 🟢 Green
+
+- [ ] **6-2**: `server/RhinoCli.TestRunner/RhinoCli.TestRunner.csproj` 作成 (net7.0 console app)
+- [ ] **6-3**: `Program.cs` で `TcpServer` を立てて `Console.ReadKey` で待機 (テストから kill)
+- [ ] **6-4**: Rust テスト側で起動・接続・終了の orchestration
+
+### 🔵 Refactor
+
+- [ ] **6-5**: ポート競合回避 (port=0 で auto 割当 → ActualPort を stdout に出力)
+
+---
+
+## Phase 7: 例 — MinimalPlugin
+
+実際の Rhino プラグインから RhinoCli.Server を組み込む参考例。**ビルドのみ確認**、実起動は手動。
+
+### 🟢 Green
+
+- [ ] **7-1**: `examples/MinimalPlugin/MinimalPlugin.csproj`
+  - net7.0、RhinoCommon 依存、`RhinoCli.Server` を ProjectReference
+- [ ] **7-2**: `MinimalPlugin.cs`
+  - `OnLoad` で `TcpServer` 起動 (port 50099)
+  - 1 つだけ独自 handler `minimal.echo` (params をそのまま result に)
+- [ ] **7-3**: `MinimalPlugin/HelloHandler.cs` (`minimal.hello` → `{"hello":"world"}`)
+- [ ] **7-4**: `examples/MinimalPlugin/README.md` で起動・接続手順
+- [ ] **7-5**: Rhino を実際に立ち上げて手動確認:
+  - `rhino-cli ping --port 50099`
+  - `rhino-cli call minimal.hello --port 50099`
+
+---
+
+## Phase 8: ドキュメント仕上げ + 配布準備
+
+- [ ] **8-1**: `docs/plugin-integration.md` を書く (既存プラグインへの組込手順)
+- [ ] **8-2**: `README.md` のクイックスタートを最終形に更新
+- [ ] **8-3**: GitHub リポジトリ作成 (publicまたはprivate、未確定)
+- [ ] **8-4**: `cargo install --path .` での動作確認
+- [ ] **8-5**: バージョン `0.1.0` をタグ付け
+
+---
+
+## 実装順序 (依存グラフ)
+
+```
+Phase 0 ✅
+   │
+   ▼
+Phase 1 (Rust 純ロジック)
+   │
+   ├─────────────► Phase 4 (C# router 純ロジック)
+   │                   │
+   ▼                   ▼
+Phase 2 (Rust client)  Phase 5 (C# 組込 handler)
+   │                   │
+   ▼                   ▼
+Phase 3 (CLI サブコマンド)
+   │
+   ▼
+Phase 6 (Rust ↔ C# E2E、Rhino なし)
+   │
+   ▼
+Phase 7 (MinimalPlugin、Rhino あり 手動)
+   │
+   ▼
+Phase 8 (docs + 配布)
+```
+
+Phase 1 と Phase 4 は **並行可能** (純ロジックで相互に依存しない)。
+Phase 2 と Phase 5 は **並行可能** (TCP 層は別、router 内部完結)。
+Phase 6 で初めて両者が出会う。
+
+---
+
+## Phase 完了の定義 (Definition of Done)
+
+各 Phase は以下を満たした時点で完了:
+1. すべてのチェックボックスが `[x]`
+2. テストが通る (`cargo test` / `dotnet test`)
+3. 該当 phase のヘッダに `✅ 完了` を追記
+
+---
+
+## 本リポジトリのスコープ外 (= GeoMLRhino 側で別タスク)
+
+以下はこのリポジトリでは扱わない:
+
+- GeoMLRhino プラグイン本体への `RhinoCli.Server` 組込
+- `geoml.durability_test` handler の実装
+- Stage 1.1 シナリオの C# コード化
+- 実 Rhino を使った E2E テスト
+- GitHub Actions CI
+
+これらは GeoMLRhino リポジトリのタスクとして別途追跡する。
+
+---
+
+## 進捗ログ
+
+| Date | Phase | Note |
+|------|-------|------|
+| 2026-05-09 | 0 | 設計書・プロトコル仕様・タスクリスト作成完了 |
