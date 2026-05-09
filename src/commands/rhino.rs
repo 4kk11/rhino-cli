@@ -18,6 +18,7 @@ pub struct LaunchArgs {
     pub timeout: Duration,
     pub restart: bool,
     pub no_wait: bool,
+    pub new_model: bool,
     pub script: Option<String>,
 }
 
@@ -43,6 +44,7 @@ impl Default for LaunchArgs {
             timeout: Duration::from_secs(DEFAULT_LAUNCH_TIMEOUT_SECS),
             restart: false,
             no_wait: false,
+            new_model: false,
             script: None,
         }
     }
@@ -73,6 +75,12 @@ pub fn launch(ctx: &CommandContext, args: LaunchArgs) -> Result<()> {
     validate_app_name(&args.app)?;
 
     if !args.restart && is_plugin_ready(ctx) {
+        if args.new_model || args.script.is_some() {
+            return Err(CliError::InvalidInput(
+                "Rhino is already running; use `rhino-cli launch --restart --new-model` to apply launch-time model opening, or `rhino-cli new-model` inside an existing modeling session."
+                    .to_string(),
+            ));
+        }
         if ctx.verbose && !ctx.quiet {
             eprintln!("Plugin already ready on {}:{}", ctx.host, ctx.port);
         }
@@ -89,7 +97,11 @@ pub fn launch(ctx: &CommandContext, args: LaunchArgs) -> Result<()> {
         )?;
     }
 
-    launch_app(&args.app, args.script.as_deref())?;
+    let startup_script = args
+        .script
+        .as_deref()
+        .or_else(|| args.new_model.then_some("_NoEcho"));
+    launch_app(&args.app, startup_script)?;
 
     if args.no_wait {
         return Ok(());

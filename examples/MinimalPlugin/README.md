@@ -20,7 +20,7 @@ The same artifact set is copied to Rhino's macOS plugin directory:
 1. Launch Rhino and wait for the plugin:
 
 ```bash
-rhino-cli launch --port 50099 --timeout 120
+rhino-cli launch --new-model --port 50099 --timeout 120
 ```
 
 2. Confirm the command history contains:
@@ -35,6 +35,7 @@ MinimalPlugin rhino-cli server listening on 127.0.0.1:50099
 rhino-cli ping --port 50099
 rhino-cli call minimal.hello --port 50099
 rhino-cli call minimal.echo '{"value":42}' --port 50099
+rhino-cli new-model --port 50099
 rhino-cli run-script "_Zoom _Extents" --port 50099
 rhino-cli history --tail 20 --port 50099
 rhino-cli screenshot --out /tmp/rhino-minimal.png

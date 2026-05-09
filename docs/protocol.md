@@ -132,6 +132,17 @@ CLI は **connect-per-call**:
 {"plugins":[{"id":"GeoMLRhino","port":50061}]}
 ```
 
+### 3.5 参照 Rhino automation メソッド
+
+`examples/MinimalPlugin` は AI エージェント用の参照 handler として、以下の `rhino.*` メソッドを登録する。`RhinoCli.Server` の built-in ではないため、既存プラグインへ組み込む場合は同等の handler を登録する。
+
+| Method | Params | 説明 |
+|--------|--------|------|
+| `rhino.new_model` | `null` または `{ "template": "/path/to/template.3dm" }` | 新規 Rhino document を作成する |
+| `rhino.run_script` | `{ "script": "...", "echo": false, "mru_display_string": null }` | Rhino command script を実行する |
+| `rhino.command_history` | `{ "tail": 50 }` | Rhino history console text を取得する |
+| `rhino.clear_command_history` | `null` | Rhino history console buffer を消去する |
+
 ## 4. プラグイン固有メソッド命名規約
 
 | Pattern | 用途 | 例 |

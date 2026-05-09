@@ -300,6 +300,55 @@ fn history_clear_calls_clear_method() {
 }
 
 #[test]
+fn new_model_calls_rhino_new_model_without_template() {
+    let (port, handle) = spawn_rpc_server(|request| {
+        assert_eq!(request["method"], "rhino.new_model");
+        assert!(request["params"].is_null());
+        json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {
+                "status": "ok",
+                "document": {"runtime_serial_number": 42, "name": "", "path": ""}
+            }
+        })
+    });
+
+    bin()
+        .args(["new-model", "--port", &port.to_string()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"runtime_serial_number\":42"));
+    handle.join().unwrap();
+}
+
+#[test]
+fn new_model_sends_template_path() {
+    let (port, handle) = spawn_rpc_server(|request| {
+        assert_eq!(request["method"], "rhino.new_model");
+        assert_eq!(request["params"], json!({"template": "/tmp/template.3dm"}));
+        json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {"status": "ok"}
+        })
+    });
+
+    bin()
+        .args([
+            "new-model",
+            "--template",
+            "/tmp/template.3dm",
+            "--port",
+            &port.to_string(),
+        ])
+        .assert()
+        .success()
+        .stdout("{\"status\":\"ok\"}\n");
+    handle.join().unwrap();
+}
+
+#[test]
 fn screenshot_rejects_invalid_app_name_before_os_capture() {
     bin()
         .args(["screenshot", "--app", "Rhino 8; rm -rf /"])

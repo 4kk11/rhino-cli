@@ -264,10 +264,10 @@ rhino-cli wait-ready [--timeout 30]
 #### 4.2.5 `launch`
 
 ```
-rhino-cli launch [--app "Rhino 8"] [--restart] [--no-wait] [--script "<RUNSCRIPT>"] [--timeout 120]
+rhino-cli launch [--app "Rhino 8"] [--restart] [--no-wait] [--new-model] [--script "<RUNSCRIPT>"] [--timeout 120]
 ```
 
-macOS 上で Rhino を起動し、対象ポートの `system.ping` が成功するまで待つ。既に応答可能な場合は即成功する。`--restart` は既存 Rhino に終了を依頼してから起動し直す。`--script` は Rhino の `-runscript` 引数として渡す。
+macOS 上で Rhino を起動し、対象ポートの `system.ping` が成功するまで待つ。既に応答可能な場合は即成功する。`--restart` は既存 Rhino に終了を依頼してから起動し直す。`--new-model` は Rhino 起動画面を残さず新規モデルウィンドウまで開くため、起動時に harmless な `-runscript _NoEcho` を渡す。`--script` は Rhino の `-runscript` 引数として渡す。既に Rhino が起動済みの場合、起動時引数は適用できないため `--new-model` / `--script` は `--restart` と併用する。
 
 #### 4.2.6 `shutdown`
 
@@ -294,7 +294,15 @@ rhino-cli history --clear
 
 プラグイン側の `rhino.command_history` / `rhino.clear_command_history` を呼ぶ。既定では command history のテキストだけを stdout に出す。`--json` または `--pretty` で line count や truncation 情報を含む JSON を出す。
 
-#### 4.2.9 `screenshot`
+#### 4.2.9 `new-model`
+
+```
+rhino-cli new-model [--template <3DM>]
+```
+
+プラグイン側の `rhino.new_model` を呼び、Rhino の default template から新規モデルを作成する。`--template` 指定時はその `.3dm` をテンプレートとして使う。これは既に modeling session が開いている状態で追加の新規モデルを作るための RPC で、起動画面を越える用途には `launch --new-model` を使う。
+
+#### 4.2.10 `screenshot`
 
 ```
 rhino-cli screenshot [--app "Rhino 8"] [--out <PNG>] [--window-id <ID>] [--no-activate] [--no-shadow]

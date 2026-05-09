@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use serde_json::{json, Value};
 
 use crate::commands::{print_json, CommandContext};
@@ -16,6 +18,11 @@ pub struct HistoryArgs {
     pub tail: Option<u32>,
     pub clear: bool,
     pub json: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct NewModelArgs {
+    pub template: Option<PathBuf>,
 }
 
 pub fn run_script(ctx: &CommandContext, args: RunScriptArgs) -> Result<()> {
@@ -70,5 +77,15 @@ pub fn history(ctx: &CommandContext, args: HistoryArgs) -> Result<()> {
     if !text.is_empty() && !text.ends_with('\n') {
         println!();
     }
+    Ok(())
+}
+
+pub fn new_model(ctx: &CommandContext, args: NewModelArgs) -> Result<()> {
+    let params = match args.template {
+        Some(template) => json!({ "template": template.to_string_lossy() }),
+        None => json!(null),
+    };
+    let result = ctx.client().call("rhino.new_model", params)?;
+    print_json(&result, ctx.pretty)?;
     Ok(())
 }

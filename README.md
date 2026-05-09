@@ -60,20 +60,23 @@ cargo install --path .
 Run against a plugin server:
 
 ```bash
-rhino-cli launch --port 50061 --timeout 120
+rhino-cli launch --new-model --port 50061 --timeout 120
 rhino-cli wait-ready --port 50061 --timeout 30
 rhino-cli ping --port 50061 --verbose
 rhino-cli list-methods --port 50061
 rhino-cli call system.version --port 50061 --pretty
+rhino-cli new-model --port 50061
 rhino-cli run-script "_Zoom _Extents" --port 50061
 rhino-cli history --tail 50 --port 50061
 rhino-cli screenshot --out /tmp/rhino-window.png
 rhino-cli shutdown
 ```
 
-`launch` and `shutdown` currently automate Rhino on macOS via the installed app name. The default app is `Rhino 8`; use `--app "RhinoWIP"` or `--app "Rhino 7"` when needed. `launch --restart` asks Rhino to quit before relaunching. `launch --script "<Rhino command script>"` passes a Rhino `-runscript` argument before waiting for `system.ping`.
+`launch` and `shutdown` currently automate Rhino on macOS via the installed app name. The default app is `Rhino 8`; use `--app "RhinoWIP"` or `--app "Rhino 7"` when needed. `launch --restart` asks Rhino to quit before relaunching. `launch --new-model` opens a modeling window at startup instead of leaving Rhino's start window active. `launch --script "<Rhino command script>"` passes a Rhino `-runscript` argument before waiting for `system.ping`.
 
 `run-script` prints Rhino's `RunScript` result JSON. Use `--fail-on-false` when a false return value should fail automation.
+
+`new-model` calls the plugin's `rhino.new_model` handler. It creates another unsaved model from Rhino's default template, or from `--template <3dm>` when specified.
 
 `screenshot` captures the Rhino app window itself as a PNG on macOS. It is useful for autonomous visual debugging after `run-script`; use `--no-shadow` for tighter images, `--no-activate` when you have already focused Rhino, and `--window-id` for a known macOS window id. macOS Screen Recording permission is required for the terminal process running `rhino-cli`.
 
@@ -94,8 +97,9 @@ The build copies the plugin artifacts to:
 Launch Rhino 8, then call:
 
 ```bash
-rhino-cli launch --port 50099 --timeout 120
+rhino-cli launch --new-model --port 50099 --timeout 120
 rhino-cli call minimal.hello --port 50099
+rhino-cli new-model --port 50099
 rhino-cli run-script "_Zoom _Extents" --port 50099
 rhino-cli history --tail 20 --port 50099
 rhino-cli screenshot --out /tmp/rhino-minimal.png

@@ -21,6 +21,7 @@ public sealed class MinimalPlugin : PlugIn
             registry.Register("minimal.hello", new HelloHandler());
             registry.Register("minimal.echo", new EchoHandler());
             registry.Register("rhino.run_script", new RunScriptHandler());
+            registry.Register("rhino.new_model", new NewModelHandler());
             registry.Register("rhino.command_history", new CommandHistoryHandler());
             registry.Register("rhino.clear_command_history", new ClearCommandHistoryHandler());
 

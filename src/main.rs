@@ -7,7 +7,7 @@ use rhino_cli::client::{
 };
 use rhino_cli::commands::call::CallArgs;
 use rhino_cli::commands::rhino::{LaunchArgs, ScreenshotArgs, ShutdownArgs};
-use rhino_cli::commands::rhino_rpc::{HistoryArgs, RunScriptArgs};
+use rhino_cli::commands::rhino_rpc::{HistoryArgs, NewModelArgs, RunScriptArgs};
 use rhino_cli::commands::CommandContext;
 use rhino_cli::error::{CliError, Result};
 use serde_json::json;
@@ -86,6 +86,12 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Open a new Rhino model through the plugin.
+    NewModel {
+        /// Optional 3DM template path.
+        #[arg(long)]
+        template: Option<std::path::PathBuf>,
+    },
     /// Launch Rhino and wait until the plugin answers system.ping.
     Launch {
         /// Rhino application name.
@@ -97,6 +103,9 @@ enum Commands {
         /// Return immediately after launching Rhino.
         #[arg(long)]
         no_wait: bool,
+        /// Open a new model at startup instead of leaving Rhino's start window active.
+        #[arg(long)]
+        new_model: bool,
         /// Optional Rhino command script passed via -runscript.
         #[arg(long)]
         script: Option<String>,
@@ -186,10 +195,14 @@ fn run(cli: Cli) -> Result<()> {
         Commands::History { tail, clear, json } => {
             rhino_cli::commands::rhino_rpc::history(&ctx, HistoryArgs { tail, clear, json })
         }
+        Commands::NewModel { template } => {
+            rhino_cli::commands::rhino_rpc::new_model(&ctx, NewModelArgs { template })
+        }
         Commands::Launch {
             app,
             restart,
             no_wait,
+            new_model,
             script,
         } => rhino_cli::commands::rhino::launch(
             &ctx,
@@ -198,6 +211,7 @@ fn run(cli: Cli) -> Result<()> {
                 timeout: Duration::from_secs(cli.timeout.unwrap_or(120)),
                 restart,
                 no_wait,
+                new_model,
                 script,
             },
         ),
