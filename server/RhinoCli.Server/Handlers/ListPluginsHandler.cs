@@ -6,7 +6,8 @@ namespace RhinoCli.Server.Handlers;
     "Return the plugin id and port for this RhinoCli.Server instance.",
     ParamsSchema = "null",
     ResultSchema = "{ plugins: [{ id: string, port: number }] }",
-    Examples = new[] { "rhino-cli call rpc.list_plugins" },
+    Examples = new[] { "rhino-cli list-plugins" },
+    DedicatedCommand = "rhino-cli list-plugins",
     Category = "rpc")]
 public sealed class ListPluginsHandler : IHandler
 {

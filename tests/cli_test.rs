@@ -83,6 +83,53 @@ fn list_methods_prints_one_method_per_line() {
 }
 
 #[test]
+fn list_plugins_prints_id_and_port_per_line() {
+    let (port, handle) = spawn_rpc_server(|request| {
+        assert_eq!(request["method"], "rpc.list_plugins");
+        assert!(request["params"].is_null());
+        json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {"plugins": [{"id": "RhinoCliPlugin", "port": 50061}]}
+        })
+    });
+
+    bin()
+        .args(["list-plugins", "--port", &port.to_string()])
+        .assert()
+        .success()
+        .stdout("RhinoCliPlugin\t50061\n");
+    handle.join().unwrap();
+}
+
+#[test]
+fn list_plugins_raw_pretty_prints_json() {
+    let (port, handle) = spawn_rpc_server(|request| {
+        assert_eq!(request["method"], "rpc.list_plugins");
+        json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {"plugins": [{"id": "RhinoCliPlugin", "port": 50061}]}
+        })
+    });
+
+    bin()
+        .args([
+            "list-plugins",
+            "--port",
+            &port.to_string(),
+            "--raw",
+            "--pretty",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"plugins\""))
+        .stdout(predicate::str::contains("\"RhinoCliPlugin\""))
+        .stdout(predicate::str::contains("50061"));
+    handle.join().unwrap();
+}
+
+#[test]
 fn capabilities_prints_handler_metadata() {
     let (port, handle) = spawn_rpc_server(|request| {
         assert_eq!(request["method"], "rpc.capabilities");

@@ -85,6 +85,7 @@ rhino-cli wait-ready --port 50061 --timeout 120
 rhino-cli ping --port 50061 --verbose
 rhino-cli capabilities --port 50061
 rhino-cli capabilities --method rhino.run_script --port 50061
+rhino-cli list-plugins --port 50061
 rhino-cli call system.version --port 50061 --pretty
 rhino-cli new-model --port 50061
 rhino-cli run-script "_Zoom _Extents" --port 50061
@@ -100,6 +101,8 @@ rhino-cli shutdown
 `doctor` answers whether Rhino and the RhinoCliPlugin RPC endpoint are reachable. `capabilities` is the self-describing command for AI agents and humans: it prints registered handlers, params, result shapes, examples, side effects, and dedicated CLI wrappers. Use `--format json`, `--format markdown`, or `--format agent` when another tool needs structured context.
 
 `call` is the universal execution path for any registered handler.
+
+`list-plugins` calls `rpc.list_plugins` and prints `<plugin id>\t<port>` per line. Use `--raw --pretty` to dump the JSON shape directly.
 
 `run-script` prints Rhino's `RunScript` result JSON. Use `--fail-on-false` when a false return value should fail automation.
 

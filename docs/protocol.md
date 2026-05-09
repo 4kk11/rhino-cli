@@ -159,7 +159,7 @@ null
 
 ### 3.5 `rpc.list_plugins`
 
-(将来用、MVP では `pluginId` 1 個を要素 1 で返すだけ。) 同一 Rhino プロセス内に他の `RhinoCli.Server` インスタンスがある場合に発見可能にするため。MVP では協調機構は未実装で固定値を返す。
+(将来用、MVP では `pluginId` 1 個を要素 1 で返すだけ。) 同一 Rhino プロセス内に他の `RhinoCli.Server` インスタンスがある場合に発見可能にするため。MVP では協調機構は未実装で固定値を返す。専用 CLI: `rhino-cli list-plugins`。
 
 **Response**:
 ```json

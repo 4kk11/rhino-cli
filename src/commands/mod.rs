@@ -2,6 +2,7 @@ pub mod call;
 pub mod capabilities;
 pub mod doctor;
 pub mod list_methods;
+pub mod list_plugins;
 pub mod ping;
 pub mod plugin;
 pub mod rhino;

@@ -83,6 +83,7 @@ rhino-cli/
 │       ├── mod.rs
 │       ├── ping.rs
 │       ├── list_methods.rs
+│       ├── list_plugins.rs
 │       ├── call.rs
 │       └── wait_ready.rs
 ├── server/
@@ -238,7 +239,15 @@ system.ping
 system.version
 ```
 
-#### 4.2.3 `call`
+#### 4.2.3 `list-plugins`
+
+```
+rhino-cli list-plugins
+```
+
+`rpc.list_plugins` を呼び、`<plugin id>\t<port>` を 1 行ずつ出力する。MVP は要素 1 個固定だが、将来同一 Rhino プロセス内に複数の `RhinoCli.Server` が共存する場合に備えた発見 API。`--raw --pretty` で生 JSON を出す。
+
+#### 4.2.4 `call`
 
 ```
 rhino-cli call <method> [PARAMS_JSON]
@@ -255,7 +264,7 @@ rhino-cli call <method> --param key=value [--param key=value ...]
 成功時: `result` を stdout に JSON 出力 (デフォルト minified、`--pretty` で整形)。
 失敗時: `error` を stderr に JSON 出力、終了コード 3。
 
-#### 4.2.4 `wait-ready`
+#### 4.2.5 `wait-ready`
 
 ```
 rhino-cli wait-ready [--timeout 30]
@@ -263,7 +272,7 @@ rhino-cli wait-ready [--timeout 30]
 
 サーバ起動を待つ。指定秒間 100ms 間隔で `ping` を試行。`--timeout` の既定は `--connect-timeout` ではなく専用に 30 秒。Rhino 起動直後の race 用。
 
-#### 4.2.5 `doctor`
+#### 4.2.6 `doctor`
 
 ```
 rhino-cli doctor [--app "Rhino 8"]
@@ -271,7 +280,7 @@ rhino-cli doctor [--app "Rhino 8"]
 
 Rhino アプリの起動状態と `RhinoCliPlugin` RPC 到達性を確認する。未起動・ポート不一致・プラグイン未ロードの切り分けに使う。これは「使える状態か」を見る診断コマンドで、handler の仕様は `capabilities` に集約する。
 
-#### 4.2.6 `capabilities`
+#### 4.2.7 `capabilities`
 
 ```
 rhino-cli capabilities [--method <METHOD>] [--format text|json|markdown|agent]
@@ -279,7 +288,7 @@ rhino-cli capabilities [--method <METHOD>] [--format text|json|markdown|agent]
 
 プラグイン側の `rpc.capabilities` を呼び、登録済み handler の説明、params/result schema、例、専用 CLI、side effects を表示する。AI に渡す文脈は `--format agent`、機械処理は `--format json` を使う。`--method` 指定時は 1 handler の詳細だけを出す。
 
-#### 4.2.7 `launch`
+#### 4.2.8 `launch`
 
 ```
 rhino-cli launch [--app "Rhino 8"] [--restart] [--new-model] [--script "<RUNSCRIPT>"]
@@ -287,9 +296,9 @@ rhino-cli launch [--app "Rhino 8"] [--restart] [--new-model] [--script "<RUNSCRI
 
 macOS 上で Rhino を起動するだけのコマンド。port 概念は持たず、readiness 待ちもしない。RPC が応答するまで待つ必要がある場合は `rhino-cli wait-ready --port <PORT>` を別途呼ぶ。既に Rhino が起動済みの場合は no-op で成功する（起動時引数 `--new-model` / `--script` を要求された場合は `--restart` 併用を促すエラーを返す）。`--restart` は AppleScript 経由で既存 Rhino に終了を依頼してから起動し直す。`--new-model` は Rhino 起動画面を残さず新規モデルウィンドウまで開くため、起動時に harmless な `-runscript _NoEcho` を渡す。`--script` は Rhino の `-runscript` 引数として渡す。
 
-bundled RhinoCliPlugin が listen するポートは `rhino-cli plugin set-port <PORT>` で事前に設定する（§4.2.x 参照）。サードパーティ plugin の port 設定はこの CLI のスコープ外で、各 plugin が自身の手段（env / 設定ファイル / ハードコード等）で解決する。
+bundled RhinoCliPlugin が listen するポートは `rhino-cli plugin set-port <PORT>` で事前に設定する（§4.2.9 参照）。サードパーティ plugin の port 設定はこの CLI のスコープ外で、各 plugin が自身の手段（env / 設定ファイル / ハードコード等）で解決する。
 
-#### 4.2.x `plugin set-port` / `plugin show-config`
+#### 4.2.9 `plugin set-port` / `plugin show-config`
 
 ```
 rhino-cli plugin set-port <PORT>
@@ -298,7 +307,7 @@ rhino-cli plugin show-config
 
 bundled RhinoCliPlugin の launch config (`~/Library/Application Support/rhino-cli/RhinoCliPlugin/config.json` on macOS) を書き換え／表示する。`set-port` は次回 Rhino ロード時に反映される。`show-config` は現在の内容と path を出力する（未生成なら fallback 仕様を案内）。サードパーティ plugin には影響しない。
 
-#### 4.2.8 `shutdown`
+#### 4.2.10 `shutdown`
 
 ```
 rhino-cli shutdown [--app "Rhino 8"] [--timeout 30]
@@ -306,7 +315,7 @@ rhino-cli shutdown [--app "Rhino 8"] [--timeout 30]
 
 macOS の AppleScript 経由で Rhino に終了を依頼し、プロセス終了まで待つ。保存確認ダイアログが残る場合はタイムアウトする。
 
-#### 4.2.9 `run-script`
+#### 4.2.11 `run-script`
 
 ```
 rhino-cli run-script <SCRIPT> [--echo] [--mru <TEXT>] [--fail-on-false]
@@ -314,7 +323,7 @@ rhino-cli run-script <SCRIPT> [--echo] [--mru <TEXT>] [--fail-on-false]
 
 プラグイン側の `rhino.run_script` を呼び、Rhino UI スレッド上で `RhinoApp.RunScript` を実行する。`SCRIPT` は Rhino コマンドラインに渡す script 文字列。macOS の Rhino では script が command history に投入されても `RunScript` が `false` を返すケースがあるため、既定では結果 JSON を表示して終了コード 0 とする。厳密に false を失敗扱いしたい場合だけ `--fail-on-false` を使う。
 
-#### 4.2.10 `history`
+#### 4.2.12 `history`
 
 ```
 rhino-cli history [--tail <N>] [--json]
@@ -323,7 +332,7 @@ rhino-cli history --clear
 
 プラグイン側の `rhino.command_history` / `rhino.clear_command_history` を呼ぶ。既定では command history のテキストだけを stdout に出す。`--json` または `--pretty` で line count や truncation 情報を含む JSON を出す。
 
-#### 4.2.11 `new-model`
+#### 4.2.13 `new-model`
 
 ```
 rhino-cli new-model [--template <3DM>]
@@ -331,7 +340,7 @@ rhino-cli new-model [--template <3DM>]
 
 プラグイン側の `rhino.new_model` を呼び、Rhino の default template から新規モデルを作成する。`--template` 指定時はその `.3dm` をテンプレートとして使う。これは既に modeling session が開いている状態で追加の新規モデルを作るための RPC で、起動画面を越える用途には `launch --new-model` を使う。
 
-#### 4.2.12 `screenshot`
+#### 4.2.14 `screenshot`
 
 ```
 rhino-cli screenshot [--app "Rhino 8"] [--out <PNG>] [--window-id <ID>] [--no-activate] [--no-shadow]

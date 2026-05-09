@@ -51,6 +51,8 @@ enum Commands {
     Ping,
     /// List registered RPC methods.
     ListMethods,
+    /// List RhinoCli.Server plugin instances reachable through this connection.
+    ListPlugins,
     /// Diagnose Rhino and RhinoCliPlugin connectivity.
     Doctor {
         /// Rhino application name.
@@ -192,6 +194,7 @@ fn run(cli: Cli) -> Result<()> {
     match cli.command {
         Commands::Ping => rhino_cli::commands::ping::run(&ctx),
         Commands::ListMethods => rhino_cli::commands::list_methods::run(&ctx),
+        Commands::ListPlugins => rhino_cli::commands::list_plugins::run(&ctx),
         Commands::Doctor { app } => rhino_cli::commands::doctor::run(&ctx, DoctorArgs { app }),
         Commands::Capabilities { method, format } => {
             rhino_cli::commands::capabilities::run(&ctx, CapabilitiesArgs { method, format })

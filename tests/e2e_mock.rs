@@ -99,6 +99,17 @@ fn cli_can_list_methods_from_csharp_tcp_server() {
 }
 
 #[test]
+fn cli_can_list_plugins_from_csharp_tcp_server() {
+    let runner = TestRunner::start();
+
+    bin()
+        .args(["list-plugins", "--port", &runner.port.to_string()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("RhinoCli.TestRunner\t"));
+}
+
+#[test]
 fn cli_surfaces_csharp_method_not_found_error() {
     let runner = TestRunner::start();
 
