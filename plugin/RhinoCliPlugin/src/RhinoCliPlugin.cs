@@ -26,6 +26,8 @@ public sealed class RhinoCliPlugin : PlugIn
             registry.Register("rhino.new_model", new NewModelHandler());
             registry.Register("rhino.command_history", new CommandHistoryHandler());
             registry.Register("rhino.clear_command_history", new ClearCommandHistoryHandler());
+            registry.Register("rhino.list_commands", new ListCommandsHandler());
+            registry.Register("rhino.probe_command", new ProbeCommandHandler());
 
             _server = new TcpServer(port, registry, "RhinoCliPlugin", InvokeOnUiThread);
             _server.OnError += message => RhinoApp.WriteLine($"RhinoCliPlugin: {message}");

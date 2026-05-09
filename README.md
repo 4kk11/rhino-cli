@@ -88,6 +88,8 @@ rhino-cli capabilities --method rhino.run_script --port 50061
 rhino-cli list-plugins --port 50061
 rhino-cli call system.version --port 50061 --pretty
 rhino-cli new-model --port 50061
+rhino-cli list-commands --pattern Box --port 50061
+rhino-cli probe-command Box --port 50061
 rhino-cli run-script "_Zoom _Extents" --port 50061
 rhino-cli history --tail 50 --port 50061
 rhino-cli screenshot --out /tmp/rhino-window.png
@@ -107,6 +109,8 @@ rhino-cli shutdown
 `run-script` prints Rhino's `RunScript` result JSON. Use `--fail-on-false` when a false return value should fail automation.
 
 `new-model` calls the plugin's `rhino.new_model` handler. It creates another unsaved model from Rhino's default template, or from `--template <3dm>` when specified.
+
+`list-commands` returns Rhino command names known to the running instance (English by default). Use `--pattern` for a case-insensitive substring filter and `--include-unloaded` to also include commands from unloaded plugins. `probe-command <NAME>` starts the command via `! _-<Name> _Cancel` and returns the captured first prompt and option labels (in Rhino's locale) so AI agents can discover argument syntax dynamically before invoking `run-script`. The option short codes in parentheses (e.g. `(D)`, `(P)`) are ASCII-stable across locales and can be passed directly as `_D`, `_P`. Use with care for commands that have immediate side effects or no `-` (no-dialog) variant.
 
 `screenshot` captures the Rhino app window itself as a PNG on macOS. It is useful for autonomous visual debugging after `run-script`; use `--no-shadow` for tighter images, `--no-activate` when you have already focused Rhino, and `--window-id` for a known macOS window id. macOS Screen Recording permission is required for the terminal process running `rhino-cli`.
 
@@ -133,6 +137,8 @@ rhino-cli wait-ready --port 50061 --timeout 120
 rhino-cli capabilities --format agent --port 50061
 rhino-cli call rhino_cli.hello --port 50061
 rhino-cli new-model --port 50061
+rhino-cli list-commands --pattern Box --port 50061
+rhino-cli probe-command Box --port 50061
 rhino-cli run-script "_Zoom _Extents" --port 50061
 rhino-cli history --tail 20 --port 50061
 rhino-cli screenshot --out /tmp/rhino-cli-plugin.png

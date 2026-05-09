@@ -40,6 +40,8 @@ rhino-cli capabilities --format agent --port 50061
 rhino-cli call rhino_cli.hello --port 50061
 rhino-cli call rhino_cli.echo '{"value":42}' --port 50061
 rhino-cli new-model --port 50061
+rhino-cli list-commands --pattern Box --port 50061
+rhino-cli probe-command Box --port 50061
 rhino-cli run-script "_Zoom _Extents" --port 50061
 rhino-cli history --tail 20 --port 50061
 rhino-cli screenshot --out /tmp/rhino-cli-plugin.png

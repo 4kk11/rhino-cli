@@ -25,6 +25,17 @@ pub struct NewModelArgs {
     pub template: Option<PathBuf>,
 }
 
+#[derive(Clone, Debug)]
+pub struct ListCommandsArgs {
+    pub pattern: Option<String>,
+    pub include_unloaded: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct ProbeCommandArgs {
+    pub name: String,
+}
+
 pub fn run_script(ctx: &CommandContext, args: RunScriptArgs) -> Result<()> {
     let mut params = json!({
         "script": args.script,
@@ -86,6 +97,25 @@ pub fn new_model(ctx: &CommandContext, args: NewModelArgs) -> Result<()> {
         None => json!(null),
     };
     let result = ctx.client().call("rhino.new_model", params)?;
+    print_json(&result, ctx.pretty)?;
+    Ok(())
+}
+
+pub fn list_commands(ctx: &CommandContext, args: ListCommandsArgs) -> Result<()> {
+    let mut params = json!({
+        "include_unloaded": args.include_unloaded
+    });
+    if let Some(pattern) = args.pattern {
+        params["pattern"] = json!(pattern);
+    }
+    let result = ctx.client().call("rhino.list_commands", params)?;
+    print_json(&result, ctx.pretty)?;
+    Ok(())
+}
+
+pub fn probe_command(ctx: &CommandContext, args: ProbeCommandArgs) -> Result<()> {
+    let params = json!({ "name": args.name });
+    let result = ctx.client().call("rhino.probe_command", params)?;
     print_json(&result, ctx.pretty)?;
     Ok(())
 }

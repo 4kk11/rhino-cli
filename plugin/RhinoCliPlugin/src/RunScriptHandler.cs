@@ -5,12 +5,13 @@ using RhinoCli.Server;
 namespace RhinoCliPlugin;
 
 [HandlerMetadataAttribute(
-    "Run a Rhino command script on the Rhino UI thread.",
+    "Run a Rhino command script on the Rhino UI thread. Syntax: `_-Command arg1 arg2 ...`. `_` prefix = English-locale name (recommended), `-` prefix = suppress dialog, `!` prefix = cancel any active command first. Coordinates use commas (e.g. `0,0,0`); spaces between args act as Enter. `success` reflects script parsing only, not whether the Rhino-side command actually completed — verify via `rhino.command_history` or state queries. Use `rhino.list_commands` to discover command names and `rhino.probe_command` to dynamically discover the first prompt and option labels.",
     ParamsSchema = "{ script: string, echo?: boolean, mru_display_string?: string }",
     ResultSchema = "{ status: string, success: boolean, script: string, command_prompt: string }",
     Examples = new[]
     {
         "rhino-cli run-script \"_Zoom _Extents\"",
+        "rhino-cli run-script \"! _-Box 0,0,0 10,10,10\"",
         "rhino-cli call rhino.run_script '{\"script\":\"_Zoom _Extents\",\"echo\":false}'"
     },
     DedicatedCommand = "rhino-cli run-script <SCRIPT>",

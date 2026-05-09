@@ -173,9 +173,11 @@ null
 | Method | Params | 説明 |
 |--------|--------|------|
 | `rhino.new_model` | `null` または `{ "template": "/path/to/template.3dm" }` | 新規 Rhino document を作成する |
-| `rhino.run_script` | `{ "script": "...", "echo": false, "mru_display_string": null }` | Rhino command script を実行する |
+| `rhino.run_script` | `{ "script": "...", "echo": false, "mru_display_string": null }` | Rhino command script を実行する。`_-Cmd arg1 arg2` 形式、座標 `0,0,0`、空白=Enter、`!` 接頭辞=実行中コマンドキャンセル |
 | `rhino.command_history` | `{ "tail": 50 }` | Rhino history console text を取得する |
 | `rhino.clear_command_history` | `null` | Rhino history console buffer を消去する |
+| `rhino.list_commands` | `null` または `{ "pattern": "Box", "include_unloaded": false }` | Rhino に登録済みのコマンド名一覧を返す。AI agent のコマンド発見用 |
+| `rhino.probe_command` | `{ "name": "Box" }` | コマンドを `! _-{Name} _Cancel` で起動・即時中断し、最初の Get プロンプト（option labels 込み）を `RhinoApp.CommandPrompt` から捕獲して返す。option short code は `(D)` `(P)` 等 ASCII 安定で `_D` `_P` としてそのまま渡せる |
 
 ## 4. プラグイン固有メソッド命名規約
 

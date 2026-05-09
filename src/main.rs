@@ -9,7 +9,9 @@ use rhino_cli::commands::call::CallArgs;
 use rhino_cli::commands::capabilities::{CapabilitiesArgs, CapabilitiesFormat};
 use rhino_cli::commands::doctor::DoctorArgs;
 use rhino_cli::commands::rhino::{LaunchArgs, ScreenshotArgs, ShutdownArgs};
-use rhino_cli::commands::rhino_rpc::{HistoryArgs, NewModelArgs, RunScriptArgs};
+use rhino_cli::commands::rhino_rpc::{
+    HistoryArgs, ListCommandsArgs, NewModelArgs, ProbeCommandArgs, RunScriptArgs,
+};
 use rhino_cli::commands::CommandContext;
 use rhino_cli::error::{CliError, Result};
 use serde_json::json;
@@ -110,6 +112,20 @@ enum Commands {
         /// Optional 3DM template path.
         #[arg(long)]
         template: Option<std::path::PathBuf>,
+    },
+    /// List Rhino command names known to the running Rhino instance.
+    ListCommands {
+        /// Case-insensitive substring filter applied to command names.
+        #[arg(long)]
+        pattern: Option<String>,
+        /// Also include commands belonging to plugins that are not currently loaded.
+        #[arg(long)]
+        include_unloaded: bool,
+    },
+    /// Probe a Rhino command by starting it and immediately canceling. Returns the captured first prompt and option labels.
+    ProbeCommand {
+        /// Rhino command name. English or localized names are both accepted.
+        name: String,
     },
     /// Launch Rhino. Use `rhino-cli wait-ready --port <PORT>` afterwards to wait for the plugin.
     Launch {
@@ -236,6 +252,19 @@ fn run(cli: Cli) -> Result<()> {
         }
         Commands::NewModel { template } => {
             rhino_cli::commands::rhino_rpc::new_model(&ctx, NewModelArgs { template })
+        }
+        Commands::ListCommands {
+            pattern,
+            include_unloaded,
+        } => rhino_cli::commands::rhino_rpc::list_commands(
+            &ctx,
+            ListCommandsArgs {
+                pattern,
+                include_unloaded,
+            },
+        ),
+        Commands::ProbeCommand { name } => {
+            rhino_cli::commands::rhino_rpc::probe_command(&ctx, ProbeCommandArgs { name })
         }
         Commands::Launch {
             app,

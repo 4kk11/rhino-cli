@@ -340,7 +340,21 @@ rhino-cli new-model [--template <3DM>]
 
 プラグイン側の `rhino.new_model` を呼び、Rhino の default template から新規モデルを作成する。`--template` 指定時はその `.3dm` をテンプレートとして使う。これは既に modeling session が開いている状態で追加の新規モデルを作るための RPC で、起動画面を越える用途には `launch --new-model` を使う。
 
-#### 4.2.14 `screenshot`
+#### 4.2.14 `list-commands` / `probe-command`
+
+```
+rhino-cli list-commands [--pattern <P>] [--include-unloaded]
+rhino-cli probe-command <NAME>
+```
+
+`list-commands` は `rhino.list_commands` を呼び、Rhino に登録済みのコマンド名を返す（既定は英語名・ロード済みのみ、`--pattern` で case-insensitive substring filter、`--include-unloaded` で未ロード分も含める）。`probe-command` は `rhino.probe_command` を呼び、コマンドを `! _-{Name} _Cancel` で起動して即時中断し、その間に Rhino が `RhinoApp.CommandPrompt` に置いた最初のプロンプト（option labels 込み）を捕獲して返す。docs URL に依存せず動的に option を発見できる。option short code（`(D)` 等の括弧内 1〜2 文字）は ASCII 安定で `_D` 等としてそのまま `run-script` に渡せるため、prompt 本文が locale 出力でも実用上問題ない。`-` プレフィックスを持たないコマンドや起動と同時に side effect を起こすコマンドでは挙動が崩れる点に注意。
+
+AI agent の使い分け:
+- まず `list-commands` で候補を絞る
+- `probe-command` で実機の最初のプロンプト・オプションを動的取得する
+- 取得した option short code と座標 syntax (`x,y,z`) で `run-script` を組み立てて実行する
+
+#### 4.2.15 `screenshot`
 
 ```
 rhino-cli screenshot [--app "Rhino 8"] [--out <PNG>] [--window-id <ID>] [--no-activate] [--no-shadow]
