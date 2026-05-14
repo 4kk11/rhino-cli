@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>RhinoCliPlugin</AssemblyName>
@@ -13,10 +13,18 @@
     <FileVersion>0.1.0</FileVersion>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
+    <RhinoCommonHintPath Condition="'$(RhinoCommonHintPath)' == ''">C:\Program Files\Rhino 8\System\netcore\RhinoCommon.dll</RhinoCommonHintPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(OS)' != 'Windows_NT'">
+    <RhinoCommonHintPath Condition="'$(RhinoCommonHintPath)' == ''">/Applications/Rhino 8.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources/RhinoCommon.dll</RhinoCommonHintPath>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="../../server/RhinoCli.Server/RhinoCli.Server.csproj" />
     <Reference Include="RhinoCommon">
-      <HintPath>/Applications/Rhino 8.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources/RhinoCommon.dll</HintPath>
+      <HintPath>$(RhinoCommonHintPath)</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

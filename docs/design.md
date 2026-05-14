@@ -88,7 +88,7 @@ rhino-cli/
 │       └── wait_ready.rs
 ├── server/
 │   └── RhinoCli.Server/
-│       ├── RhinoCli.Server.csproj   # netstandard2.0 でも良いが net7.0 で揃える
+│       ├── RhinoCli.Server.csproj   # netstandard2.0 でも良いが net8.0 で揃える
 │       ├── TcpServer.cs
 │       ├── MessageRouter.cs
 │       ├── HandlerRegistry.cs
@@ -608,7 +608,7 @@ Stage 2 以降で考える。Rhino 起動が必要なため CI 化のハード�
 | 3 | UI スレッド占有時の長時間 RPC でフリーズ | 進捗ポーリングパターン推奨で逃げる |
 | 4 | プラグイン間で同じ namespace を使うと衝突 | プラグイン作者の責務 |
 | 5 | `--persistent` モードがない (毎回 connect) | 必要になったら追加 |
-| 6 | C# 側は net7.0 のみ (net8.0 / netfx 検証なし) | Rhino 8 が net7.0 推奨のため当面これで |
+| 6 | C# 側は net8.0 のみ (netfx 検証なし) | Rhino 8 SR で net8.0 サポート済み |
 | 7 | `system.version` の semver 仕様未確定 | プロトコル v0.1 凍結時に決定 |
 | 8 | Rhino クラッシュ時の TCP 接続後始末 | OS まかせ |
 

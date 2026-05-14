@@ -8,7 +8,7 @@ Core Rhino 8 plugin for `rhino-cli`. It embeds `RhinoCli.Server` and registers t
 dotnet build plugin/RhinoCliPlugin/RhinoCliPlugin.csproj
 ```
 
-The output is an `.rhp` under `plugin/RhinoCliPlugin/bin/Debug/net7.0/`.
+The output is an `.rhp` under `plugin/RhinoCliPlugin/bin/Debug/net8.0/`.
 The same artifact set is copied to Rhino's macOS plugin directory:
 
 ```text

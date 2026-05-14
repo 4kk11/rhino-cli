@@ -132,7 +132,7 @@ Rhino 非依存の純粋ライブラリ。`MessageRouter` / `HandlerRegistry` / 
 ### 🟢 Green
 
 - [x] **4-3**: `server/RhinoCli.Server/RhinoCli.Server.csproj`
-  - net7.0、`System.Text.Json` 使用 (Newtonsoft 依存しない)
+  - net8.0、`System.Text.Json` 使用 (Newtonsoft 依存しない)
 - [x] **4-4**: `IHandler.cs`
 - [x] **4-5**: `RpcException.cs`
 - [x] **4-6**: `HandlerRegistry.cs` (system/rpc.* の auto-register 含む)
@@ -188,7 +188,7 @@ Rhino 非依存の純粋ライブラリ。`MessageRouter` / `HandlerRegistry` / 
 
 ### 🟢 Green
 
-- [x] **6-2**: `server/RhinoCli.TestRunner/RhinoCli.TestRunner.csproj` 作成 (net7.0 console app)
+- [x] **6-2**: `server/RhinoCli.TestRunner/RhinoCli.TestRunner.csproj` 作成 (net8.0 console app)
 - [x] **6-3**: `Program.cs` で `TcpServer` を立てて `Console.ReadKey` で待機 (テストから kill)
 - [x] **6-4**: Rust テスト側で起動・接続・終了の orchestration
 
@@ -205,7 +205,7 @@ Rhino 非依存の純粋ライブラリ。`MessageRouter` / `HandlerRegistry` / 
 ### 🟢 Green
 
 - [x] **7-1**: `plugin/RhinoCliPlugin/RhinoCliPlugin.csproj`
-  - net7.0、RhinoCommon 依存、`RhinoCli.Server` を ProjectReference
+  - net8.0、RhinoCommon 依存、`RhinoCli.Server` を ProjectReference
 - [x] **7-2**: `RhinoCliPlugin.cs`
   - `OnLoad` で `TcpServer` 起動 (default port 50061 / launch config で上書き)
   - 1 つだけ診断 handler `rhino_cli.echo` (params をそのまま result に)

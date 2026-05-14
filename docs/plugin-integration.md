@@ -12,7 +12,7 @@ Add a project reference from your plugin project:
 </ItemGroup>
 ```
 
-For Rhino 8 plugins, target `net7.0` unless your plugin has a specific multi-targeting requirement.
+For Rhino 8 plugins, target `net8.0` unless your plugin has a specific multi-targeting requirement.
 
 ## 2. Copy Artifacts After Build
 
