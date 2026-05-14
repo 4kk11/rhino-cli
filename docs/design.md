@@ -39,9 +39,10 @@ GeoMLRhino プロジェクトの **Stage 1.1 UserData 耐久テスト** を CLI 
 - 認証・暗号化 (loopback のみ動作)
 - リモート (非ローカル) 接続
 - 複数同時クライアントへのシリアライズ保証 (single-client 想定)
-- Windows での開発検証 (動くべきだがテストは Mac のみ)
 - バイナリ配布 (`cargo install --path .` のみ、後続)
 - Rhino 7 / Rhino WIP サポート
+- pure Linux (非 WSL) サポート (Rhino for Linux が存在しないため)
+- `screenshot` の Windows / WSL 実装 (`PrintWindow`/`BitBlt` ベースの別タスク)
 
 ---
 
@@ -294,7 +295,7 @@ rhino-cli capabilities [--method <METHOD>] [--format text|json|markdown|agent]
 rhino-cli launch [--app "Rhino 8"] [--restart] [--new-model] [--script "<RUNSCRIPT>"]
 ```
 
-macOS 上で Rhino を起動するだけのコマンド。port 概念は持たず、readiness 待ちもしない。RPC が応答するまで待つ必要がある場合は `rhino-cli wait-ready --port <PORT>` を別途呼ぶ。既に Rhino が起動済みの場合は no-op で成功する（起動時引数 `--new-model` / `--script` を要求された場合は `--restart` 併用を促すエラーを返す）。`--restart` は AppleScript 経由で既存 Rhino に終了を依頼してから起動し直す。`--new-model` は Rhino 起動画面を残さず新規モデルウィンドウまで開くため、起動時に harmless な `-runscript _NoEcho` を渡す。`--script` は Rhino の `-runscript` 引数として渡す。
+macOS / Windows native / WSL 上で Rhino を起動するだけのコマンド。port 概念は持たず、readiness 待ちもしない。RPC が応答するまで待つ必要がある場合は `rhino-cli wait-ready --port <PORT>` を別途呼ぶ。既に Rhino が起動済みの場合は no-op で成功する（起動時引数 `--new-model` / `--script` を要求された場合は `--restart` 併用を促すエラーを返す）。`--restart` は OS ネイティブの quit 経路（macOS: AppleScript, Windows/WSL: `taskkill /IM Rhino.exe`）で既存 Rhino を終了させてから起動し直す。`--new-model` は Rhino 起動画面を残さず新規モデルウィンドウまで開くため、起動時に harmless な `-runscript _NoEcho`（Windows では `/runscript=_NoEcho`）を渡す。`--script` は Rhino の `-runscript` 引数として渡す。Windows/WSL では Rhino.exe を `RHINO_CLI_RHINO_EXE` → `C:\Program Files\Rhino {N}\System\Rhino.exe` の順で探索する（`--app "Rhino 7"` 等でバージョン優先度を変更可能）。pure Linux はサポート対象外。
 
 bundled RhinoCliPlugin が listen するポートは `rhino-cli plugin set-port <PORT>` で事前に設定する（§4.2.9 参照）。サードパーティ plugin の port 設定はこの CLI のスコープ外で、各 plugin が自身の手段（env / 設定ファイル / ハードコード等）で解決する。
 
@@ -313,7 +314,7 @@ bundled RhinoCliPlugin の launch config (`~/Library/Application Support/rhino-c
 rhino-cli shutdown [--app "Rhino 8"] [--timeout 30]
 ```
 
-macOS の AppleScript 経由で Rhino に終了を依頼し、プロセス終了まで待つ。保存確認ダイアログが残る場合はタイムアウトする。
+Rhino に終了を依頼し、プロセス終了まで待つ。OS ネイティブの quit 経路（macOS: AppleScript `quit app`, Windows/WSL: `taskkill /IM Rhino.exe` で WM_CLOSE 相当）を使うので、いずれも保存確認ダイアログを尊重する。ダイアログが残る場合はタイムアウトする。pure Linux はサポート対象外。
 
 #### 4.2.11 `run-script`
 
@@ -360,7 +361,7 @@ AI agent の使い分け:
 rhino-cli screenshot [--app "Rhino 8"] [--out <PNG>] [--window-id <ID>] [--no-activate] [--no-shadow]
 ```
 
-macOS のウィンドウキャプチャとして Rhino アプリの前面ウィンドウを PNG に保存する。RPC サーバやプラグイン handler には依存しないため、Rhino が起動していれば `run-script` や `history` の結果と合わせて AI エージェントが視覚的にデバッグできる。`--out` 未指定時は `rhino-screenshot-<unix>.png` をカレントディレクトリに作る。`--no-shadow` は macOS のウィンドウ影を除外し、`--window-id` は既知の window id を直接指定する。実行端末には macOS の Screen Recording 権限が必要。
+**macOS のみ対応**（Windows / WSL は `PrintWindow`/`BitBlt` ベースの別タスクで実装予定）。Rhino アプリの前面ウィンドウを PNG に保存する。RPC サーバやプラグイン handler には依存しないため、Rhino が起動していれば `run-script` や `history` の結果と合わせて AI エージェントが視覚的にデバッグできる。`--out` 未指定時は `rhino-screenshot-<unix>.png` をカレントディレクトリに作る。`--no-shadow` は macOS のウィンドウ影を除外し、`--window-id` は既知の window id を直接指定する。実行端末には macOS の Screen Recording 権限が必要。Windows / WSL ターゲットでは明示エラーを返す。
 
 ### 4.3 終了コード
 

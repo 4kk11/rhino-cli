@@ -98,7 +98,15 @@ rhino-cli screenshot --out /tmp/rhino-window.png
 rhino-cli shutdown
 ```
 
-`launch` and `shutdown` currently automate Rhino on macOS via the installed app name. The default app is `Rhino 8`; use `--app "RhinoWIP"` or `--app "Rhino 7"` when needed. `launch` only starts Rhino — it does not configure plugin ports and does not wait for the RPC endpoint. Use `rhino-cli wait-ready --port <PORT>` after launch when you need to block until the plugin answers `system.ping`. `launch --restart` asks Rhino to quit before relaunching. `launch --new-model` opens a modeling window at startup instead of leaving Rhino's start window active. `launch --script "<Rhino command script>"` passes a Rhino `-runscript` argument.
+`launch` and `shutdown` automate Rhino on **macOS, Windows native, and WSL** (pure Linux is not supported because Rhino for Linux does not exist). The default app is `Rhino 8`; use `--app "RhinoWIP"` or `--app "Rhino 7"` when needed. `launch` only starts Rhino — it does not configure plugin ports and does not wait for the RPC endpoint. Use `rhino-cli wait-ready --port <PORT>` after launch when you need to block until the plugin answers `system.ping`. `launch --restart` asks Rhino to quit before relaunching. `launch --new-model` opens a modeling window at startup instead of leaving Rhino's start window active. `launch --script "<Rhino command script>"` passes a Rhino `-runscript` argument.
+
+| OS | launch backend | shutdown backend | Rhino discovery |
+|----|----------------|------------------|-----------------|
+| macOS | `open -a "<app>"` | AppleScript `quit` | App bundle name |
+| Windows native | `Rhino.exe /runscript=...` (detached) | `taskkill /IM Rhino.exe` | `RHINO_CLI_RHINO_EXE` → `C:\Program Files\Rhino {N}\System\Rhino.exe` (8 → 7) |
+| WSL (Linux) | Same as Windows via `/mnt/c/...` | `taskkill.exe` via WSL interop | Same as Windows; `RHINO_CLI_RHINO_EXE` accepts both `C:\...` and `/mnt/c/...` |
+
+Override the Rhino executable explicitly with `RHINO_CLI_RHINO_EXE`, e.g. `RHINO_CLI_RHINO_EXE="C:\Program Files\Rhino 7\System\Rhino.exe" rhino-cli launch --new-model`. `--app "Rhino 7"` only changes the search-order preference; the env var pins one absolute path.
 
 `plugin set-port <PORT>` writes the bundled RhinoCliPlugin's launch config (`~/Library/Application Support/rhino-cli/RhinoCliPlugin/config.json` on macOS). The plugin reads it the next time Rhino loads, so call this before `launch` (or before restarting Rhino) when you need to change the listening port. `plugin show-config` prints the current contents. Third-party plugins that embed `RhinoCli.Server` configure their own ports independently; `plugin set-port` only affects the bundled plugin.
 
@@ -114,7 +122,7 @@ rhino-cli shutdown
 
 `list-commands` returns Rhino command names known to the running instance (English by default). Use `--pattern` for a case-insensitive substring filter and `--include-unloaded` to also include commands from unloaded plugins. `probe-command <NAME>` starts the command via `! _-<Name> _Cancel` and returns the captured first prompt and option labels (in Rhino's locale) so AI agents can discover argument syntax dynamically before invoking `run-script`. The option short codes in parentheses (e.g. `(D)`, `(P)`) are ASCII-stable across locales and can be passed directly as `_D`, `_P`. Use with care for commands that have immediate side effects or no `-` (no-dialog) variant.
 
-`screenshot` captures the Rhino app window itself as a PNG on macOS. It is useful for autonomous visual debugging after `run-script`; use `--no-shadow` for tighter images, `--no-activate` when you have already focused Rhino, and `--window-id` for a known macOS window id. macOS Screen Recording permission is required for the terminal process running `rhino-cli`. For pixel-only viewport rendering call `RhinoView.CaptureToBitmap` via `rhino.run_python` (recipe in `docs/protocol.md`).
+`screenshot` captures the Rhino app window itself as a PNG **on macOS only** (Windows/WSL implementation TBD — `PrintWindow`/`BitBlt` glue is tracked separately). It is useful for autonomous visual debugging after `run-script`; use `--no-shadow` for tighter images, `--no-activate` when you have already focused Rhino, and `--window-id` for a known macOS window id. macOS Screen Recording permission is required for the terminal process running `rhino-cli`. For pixel-only viewport rendering call `RhinoView.CaptureToBitmap` via `rhino.run_python` (recipe in `docs/protocol.md`).
 
 ### Handler set is intentionally small
 

@@ -80,7 +80,14 @@ Rust 製の汎用 Rhino プラグイン RPC クライアント + C# サーバラ
 - 新しい handler は `HandlerMetadataAttribute` で metadata を付け、`capabilities` からAIが仕様を読める状態にする
 - `RhinoCli.Server` は汎用サーバライブラリ。Rhino 固有操作を server built-in に入れず、同梱 plugin 側の handler として実装する
 - `system.*` / `rpc.*` / `rhino.*` は予約 namespace。プラグイン固有 handler は `<plugin>.*` に分ける
-- macOS 実機機能（launch/shutdown/screenshot）は権限・Rhino起動状態に依存する。失敗時は `doctor`, `history`, `screenshot` を使って自律的に切り分ける
+- 実機機能の OS 別サポート:
+
+  | 機能 | macOS | Windows native | WSL | pure Linux |
+  |------|-------|----------------|-----|------------|
+  | `launch` / `shutdown` / `app_running` | ✓ | ✓ | ✓ | ✗ |
+  | `screenshot` | ✓ | ✗（別タスク） | ✗（別タスク） | ✗ |
+
+  失敗時は `doctor`, `history`, `screenshot`（macOS のみ）を使って自律的に切り分ける。Windows / WSL では `RHINO_CLI_RHINO_EXE` で Rhino.exe を直接指せる
 
 ## 用語
 
