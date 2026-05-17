@@ -220,11 +220,16 @@ Rhino プロセスにロード済みのアセンブリを直接 reflection す�
   "is_sealed": false,
   "base_type": "System.ValueType",
   "interfaces": ["..."],
+  "summary": "Represents the value of a plane and three intervals...",
   "constructors": [
-    { "params": [{"name": "plane", "type": "Rhino.Geometry.Plane", ...}, ...], "is_public": true }
+    {
+      "params": [{"name": "plane", "type": "Rhino.Geometry.Plane", "summary": "...", ...}, ...],
+      "is_public": true,
+      "summary": "Initializes a new instance of the Box class..."
+    }
   ],
   "properties": [
-    { "name": "Center", "type": "Rhino.Geometry.Point3d", "get": true, "set": false, "static": false }
+    { "name": "Center", "type": "Rhino.Geometry.Point3d", "get": true, "set": false, "static": false, "summary": "Gets the center point of the box." }
   ],
   "methods": [
     {
@@ -235,13 +240,15 @@ Rhino プロセスにロード済みのアセンブリを直接 reflection す�
           "params": [...],
           "return_type": "Rhino.Geometry.Point3d",
           "is_generic": false,
-          "generic_args": []
+          "generic_args": [],
+          "summary": "Evaluates the Box at the given parameters...",
+          "returns": "the evaluated point"
         }
       ]
     }
   ],
-  "events": [...],
-  "fields": [...]
+  "events": [{"name": "...", "handler_type": "...", "summary": "..."}],
+  "fields": [{"name": "...", "type": "...", "static": false, "is_literal": false, "summary": "..."}]
 }
 ```
 
@@ -254,11 +261,19 @@ Rhino プロセスにロード済みのアセンブリを直接 reflection す�
   "is_out": false,
   "is_ref": false,
   "has_default": false,
-  "default_value": null
+  "default_value": null,
+  "summary": "the plane on which to base the box"
 }
 ```
 
-XML doc の `<summary>` 取り込みは Phase B で追加予定。
+**XML ドキュメントの取り込み (Phase B)**: ハンドラは型の所属アセンブリの
+隣にある `<AssemblyName>.xml` ファイル (例: `RhinoCommon.xml`) を自動で
+読み込み、各メンバの `<summary>` / `<param>` / `<returns>` を JSON の
+`summary` / param オブジェクトの `summary` / overload の `returns` に
+attach する。XML が存在しない、メンバ ID が見つからない場合は空文字列を
+返す（エラーにはならない）。RhinoCommon の XML は通常英語のみ同梱なので、
+日本語ロケールでも summary は英語で返る。詳細な lookup 規約は
+`docs/plugin-integration.md` の「XML doc lookup」を参照。
 
 #### `rhino.run_python` の代表レシピ
 

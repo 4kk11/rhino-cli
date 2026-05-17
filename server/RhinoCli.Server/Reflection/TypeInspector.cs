@@ -72,10 +72,18 @@ public static class TypeInspector
                     hint = "Use rhino.search_types to discover the fully qualified name."
                 });
 
-        return BuildDescription(type, options);
+        return BuildDescription(type, options, XmlDocLoader.ForAssembly(type.Assembly));
     }
 
-    private static object BuildDescription(Type type, InspectOptions opts)
+    /// <summary>
+    /// Inspect a type using an explicit XML doc loader. Used by tests that supply a fixture.
+    /// </summary>
+    public static object Inspect(Type type, InspectOptions options, XmlDocLoader? xmlDocs)
+    {
+        return BuildDescription(type, options, xmlDocs);
+    }
+
+    private static object BuildDescription(Type type, InspectOptions opts, XmlDocLoader? typeAssemblyDocs)
     {
         var memberFlags = ToFlags(opts.Binding, opts.IncludeInherited);
         // Constructors do not inherit, so DeclaredOnly is always applied for ctors.
@@ -89,22 +97,36 @@ public static class TypeInspector
                     ? "struct"
                     : "class";
 
+        var typeSummary = typeAssemblyDocs?.Lookup(DocCommentId.ForType(type))?.Summary ?? "";
+
         var constructors = type.GetConstructors(ctorFlags)
-            .Select(c => new
+            .Select(c =>
             {
-                @params = c.GetParameters().Select(BuildParam).ToArray(),
-                is_public = c.IsPublic,
+                var docs = DocsForMember(c, typeAssemblyDocs);
+                var entry = docs.loader?.Lookup(DocCommentId.ForMethod(c));
+                return new
+                {
+                    @params = c.GetParameters().Select(p => BuildParam(p, entry?.Params)).ToArray(),
+                    is_public = c.IsPublic,
+                    summary = entry?.Summary ?? "",
+                };
             })
             .ToArray();
 
         var properties = type.GetProperties(memberFlags)
-            .Select(p => new
+            .Select(p =>
             {
-                name = p.Name,
-                type = FormatType(p.PropertyType),
-                get = p.CanRead,
-                set = p.CanWrite,
-                @static = (p.GetMethod ?? p.SetMethod)?.IsStatic ?? false,
+                var docs = DocsForMember(p, typeAssemblyDocs);
+                var entry = docs.loader?.Lookup(DocCommentId.ForProperty(p));
+                return new
+                {
+                    name = p.Name,
+                    type = FormatType(p.PropertyType),
+                    get = p.CanRead,
+                    set = p.CanWrite,
+                    @static = (p.GetMethod ?? p.SetMethod)?.IsStatic ?? false,
+                    summary = entry?.Summary ?? "",
+                };
             })
             .ToArray();
 
@@ -115,31 +137,50 @@ public static class TypeInspector
             {
                 name = g.Key.Name,
                 @static = g.Key.IsStatic,
-                overloads = g.Select(m => new
+                overloads = g.Select(m =>
                 {
-                    @params = m.GetParameters().Select(BuildParam).ToArray(),
-                    return_type = FormatType(m.ReturnType),
-                    is_generic = m.IsGenericMethodDefinition,
-                    generic_args = m.GetGenericArguments().Select(t => t.Name).ToArray(),
+                    var docs = DocsForMember(m, typeAssemblyDocs);
+                    var entry = docs.loader?.Lookup(DocCommentId.ForMethod(m));
+                    return new
+                    {
+                        @params = m.GetParameters().Select(p => BuildParam(p, entry?.Params)).ToArray(),
+                        return_type = FormatType(m.ReturnType),
+                        is_generic = m.IsGenericMethodDefinition,
+                        generic_args = m.GetGenericArguments().Select(t => t.Name).ToArray(),
+                        summary = entry?.Summary ?? "",
+                        returns = entry?.Returns ?? "",
+                    };
                 }).ToArray(),
             })
             .ToArray();
 
         var events = type.GetEvents(memberFlags)
-            .Select(e => new
+            .Select(e =>
             {
-                name = e.Name,
-                handler_type = FormatType(e.EventHandlerType ?? typeof(object)),
+                var docs = DocsForMember(e, typeAssemblyDocs);
+                var entry = docs.loader?.Lookup(DocCommentId.ForEvent(e));
+                return new
+                {
+                    name = e.Name,
+                    handler_type = FormatType(e.EventHandlerType ?? typeof(object)),
+                    summary = entry?.Summary ?? "",
+                };
             })
             .ToArray();
 
         var fields = type.GetFields(memberFlags)
-            .Select(f => new
+            .Select(f =>
             {
-                name = f.Name,
-                type = FormatType(f.FieldType),
-                @static = f.IsStatic,
-                is_literal = f.IsLiteral,
+                var docs = DocsForMember(f, typeAssemblyDocs);
+                var entry = docs.loader?.Lookup(DocCommentId.ForField(f));
+                return new
+                {
+                    name = f.Name,
+                    type = FormatType(f.FieldType),
+                    @static = f.IsStatic,
+                    is_literal = f.IsLiteral,
+                    summary = entry?.Summary ?? "",
+                };
             })
             .ToArray();
 
@@ -152,6 +193,7 @@ public static class TypeInspector
             is_sealed = type.IsSealed && !type.IsEnum,
             base_type = type.BaseType?.FullName,
             interfaces = type.GetInterfaces().Select(FormatType).ToArray(),
+            summary = typeSummary,
             constructors,
             properties,
             methods,
@@ -160,11 +202,28 @@ public static class TypeInspector
         };
     }
 
-    private static object BuildParam(ParameterInfo p)
+    private static (XmlDocLoader? loader, Type? declaringType) DocsForMember(MemberInfo member, XmlDocLoader? fallback)
+    {
+        var declaringType = member.DeclaringType;
+        if (declaringType is null)
+        {
+            return (fallback, null);
+        }
+
+        var docs = XmlDocLoader.ForAssembly(declaringType.Assembly) ?? fallback;
+        return (docs, declaringType);
+    }
+
+    private static object BuildParam(ParameterInfo p, IReadOnlyDictionary<string, string>? paramDocs)
     {
         var paramType = p.ParameterType;
         var isOut = p.IsOut;
         var isRef = paramType.IsByRef && !isOut;
+        var summary = (paramDocs is not null
+                       && p.Name is not null
+                       && paramDocs.TryGetValue(p.Name, out var s))
+            ? s
+            : "";
         return new
         {
             name = p.Name ?? "",
@@ -173,6 +232,7 @@ public static class TypeInspector
             is_ref = isRef,
             has_default = p.HasDefaultValue,
             default_value = p.HasDefaultValue ? p.DefaultValue?.ToString() : null,
+            summary,
         };
     }
 

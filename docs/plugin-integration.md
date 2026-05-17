@@ -175,3 +175,26 @@ rhino-cli shutdown
 - `launch --new-model` opens a modeling window at startup via Rhino's launch-time `-runscript` path. If Rhino is already running, use `--restart` to apply it.
 - `screenshot` captures the Rhino window on macOS and does not require any plugin RPC handler. The terminal running `rhino-cli` needs macOS Screen Recording permission.
 - `new-model`, `run-script`, `history`, `list-commands`, and `probe-command` require the plugin to register `rhino.new_model`, `rhino.run_script`, `rhino.command_history`, `rhino.clear_command_history`, `rhino.list_commands`, and `rhino.probe_command`. `plugin/RhinoCliPlugin` provides the core reference handlers.
+
+### XML doc lookup (used by `rhino.inspect_type`)
+
+`InspectTypeHandler` enriches each member of the inspected type with
+its XML documentation summary when one is available. The loader looks
+for `<AssemblyName>.xml` (e.g. `RhinoCommon.xml`) **next to the
+loaded assembly DLL** — the same location MSBuild emits doc files when
+`GenerateDocumentationFile` is enabled. The lookup is per-assembly and
+cached for the lifetime of the host process.
+
+- For RhinoCommon, the XML file is shipped beside `RhinoCommon.dll`
+  in `Rhino.app/Contents/Frameworks/RhCore.framework/.../Resources/`,
+  so summaries appear out of the box on macOS Rhino 8.
+- Third-party plugins that want their own types to expose summaries
+  should enable `<GenerateDocumentationFile>true</GenerateDocumentationFile>`
+  in their `.csproj` so the resulting `.xml` is copied alongside the
+  `.rhp` / `.dll`.
+- Missing XML file or unmatched member ID returns an empty string in
+  the `summary` field rather than an error, so callers can always
+  consume the result uniformly.
+- Member IDs follow the C# documentation comment spec
+  (T:/M:/P:/F:/E:), including `#ctor` for constructors and
+  `\`\`N` arity markers for generic methods.

@@ -130,6 +130,68 @@ public sealed class TypeInspectorTests
     }
 
     [Fact]
+    public void InspectAttachesSummaryFromXmlDocLoader()
+    {
+        var xml = """
+            <?xml version="1.0"?>
+            <doc>
+              <assembly><name>Fixture</name></assembly>
+              <members>
+                <member name="T:RhinoCli.Server.Tests.TypeInspectorTests.AnnotatedSample">
+                  <summary>Annotated sample for inspector docs test.</summary>
+                </member>
+                <member name="M:RhinoCli.Server.Tests.TypeInspectorTests.AnnotatedSample.#ctor(System.Int32)">
+                  <summary>Construct with seed.</summary>
+                  <param name="seed">starting count</param>
+                </member>
+                <member name="M:RhinoCli.Server.Tests.TypeInspectorTests.AnnotatedSample.Compute(System.Int32)">
+                  <summary>Compute the next value.</summary>
+                  <param name="step">increment</param>
+                  <returns>new value</returns>
+                </member>
+                <member name="P:RhinoCli.Server.Tests.TypeInspectorTests.AnnotatedSample.Counter">
+                  <summary>Current counter value.</summary>
+                </member>
+              </members>
+            </doc>
+            """;
+        var docs = XmlDocLoader.LoadFromString(xml);
+
+        var result = TypeInspector.Inspect(typeof(AnnotatedSample), new InspectOptions(), docs);
+        var json = JsonSerializer.Serialize(result);
+        var node = JsonNode.Parse(json)!.AsObject();
+
+        Assert.Equal("Annotated sample for inspector docs test.", node["summary"]!.GetValue<string>());
+
+        var ctor = node["constructors"]!.AsArray().First()!;
+        Assert.Equal("Construct with seed.", ctor["summary"]!.GetValue<string>());
+        Assert.Equal("starting count", ctor["params"]!.AsArray().First()!["summary"]!.GetValue<string>());
+
+        var compute = node["methods"]!
+            .AsArray()
+            .First(m => m!["name"]!.GetValue<string>() == "Compute")!;
+        var firstOverload = compute["overloads"]!.AsArray().First()!;
+        Assert.Equal("Compute the next value.", firstOverload["summary"]!.GetValue<string>());
+        Assert.Equal("new value", firstOverload["returns"]!.GetValue<string>());
+        Assert.Equal("increment", firstOverload["params"]!.AsArray().First()!["summary"]!.GetValue<string>());
+
+        var counter = node["properties"]!
+            .AsArray()
+            .First(p => p!["name"]!.GetValue<string>() == "Counter")!;
+        Assert.Equal("Current counter value.", counter["summary"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void InspectReturnsEmptySummaryWhenXmlMissing()
+    {
+        // System.String has no XML doc beside its assembly in test environment by default.
+        var node = InspectAsJson("System.String", InspectBinding.Public, includeInherited: false);
+        // summary field should exist but may be empty string.
+        Assert.True(node.ContainsKey("summary"));
+        Assert.NotNull(node["summary"]);
+    }
+
+    [Fact]
     public void ResolveTypeFallsBackThroughLoadedAssemblies()
     {
         // System.String is in mscorlib/System.Private.CoreLib, which is loaded.
@@ -179,5 +241,17 @@ public sealed class TypeInspectorTests
         Alpha,
         Beta,
         Gamma,
+    }
+
+    public sealed class AnnotatedSample
+    {
+        public AnnotatedSample(int seed)
+        {
+            Counter = seed;
+        }
+
+        public int Counter { get; set; }
+
+        public int Compute(int step) => Counter + step;
     }
 }
