@@ -123,7 +123,9 @@ rhino-cli shutdown
 
 `decompile-method <TYPE> <METHOD>` returns the C# of a single method's IL, decoded by ICSharpCode.Decompiler. Use this when `inspect-type` is not enough and you want to read what the method actually does (control flow, helper calls, edge cases). Use `.ctor` for constructors. When the method is overloaded, pass `--signature` as a comma-separated list of parameter type names (FullName or short Name both work, e.g. `--signature Point3d` or `--signature "Rhino.Geometry.Point3d,bool"`). Use `inspect-type --with-body <METHOD>` to fetch shapes and method bodies in one CLI call — the resulting JSON merges each decompiled C# into the matching `overloads[*].body` field.
 
-`screenshot` captures the Rhino app window itself as a PNG on macOS. It is useful for autonomous visual debugging after `run-script`; use `--no-shadow` for tighter images, `--no-activate` when you have already focused Rhino, and `--window-id` for a known macOS window id. macOS Screen Recording permission is required for the terminal process running `rhino-cli`. For pixel-only viewport rendering call `RhinoView.CaptureToBitmap` via `rhino.run_python` (recipe in `docs/protocol.md`).
+`screenshot` captures the Rhino app window itself as a PNG on macOS via `screencapture` — useful for inspecting the whole UI (4 viewports + toolbar + panels) and works without the plugin. macOS Screen Recording permission is required for the terminal process running `rhino-cli`. Use `--no-shadow` for tighter images, `--no-activate` when Rhino is already focused, and `--window-id` for a known macOS window id.
+
+`capture-viewport` captures a single viewport in-process via the plugin's `RhinoView.CaptureToBitmap` and returns a base64-encoded PNG. Pass `--out <path>` to decode and write the file (path printed on success); omit `--out` to receive the full JSON-RPC result on stdout. Supports `--viewport`, `--mode` (case-insensitive: `shaded` / `rendered` / `ghosted` / `x-ray` / `wireframe` / custom), `--projection perspective|parallel`, `--camera X,Y,Z`, `--target X,Y,Z`, `--zoom-extents` (mutually exclusive with `--camera`/`--target`), and `--transparent` (uses `DisplayPipelineAttributes.FillMode = Transparent`). Display mode is applied non-destructively; camera/projection/zoom mutate the view and are not restored.
 
 ### Handler set is intentionally small
 
@@ -139,8 +141,9 @@ Currently registered:
 - `rhino.inspect_type` — API discovery via `System.Reflection`. Returns the constructors, properties, methods (overload-grouped), events, and fields of a .NET type loaded in the Rhino process so AI agents can verify RhinoCommon signatures before writing `run_python`. FQN-only resolution. XML documentation summaries are attached when an adjacent `.xml` file exists.
 - `rhino.search_types` — Find types or members by substring across loaded assemblies (case-insensitive). Pair with `inspect_type` when only a short name like `AddBox` is known.
 - `rhino.decompile_method` — Decompile a single method into C# via ICSharpCode.Decompiler. Used when an AI needs to read the actual implementation of a Rhino API rather than just its signature.
+- `rhino.capture_viewport` — capture a single viewport to PNG with structured display-mode / camera / projection control. Returns `png_base64` + applied state. DisplayMode is non-destructive (capture overload); camera/projection/zoom mutate the view and are not restored.
 
-The boundary policy and recipe collection (save / open / add box / list / delete / capture-viewport in pure `run_python`) live in `CLAUDE.md` and `docs/protocol.md`.
+The boundary policy and recipe collection (save / open / add box / list / delete in pure `run_python`) live in `CLAUDE.md` and `docs/protocol.md`.
 
 ## RhinoCliPlugin
 

@@ -184,6 +184,7 @@ null
 | `rhino.inspect_type` | `{ "name": "Rhino.Geometry.Box", "binding"?: "public" \| "public_instance" \| "public_static" \| "non_public" \| "all", "include_inherited"?: bool }` | `System.Reflection` でロード済みの .NET 型を内省し、constructors / properties / methods（オーバーロードはグルーピング）/ events / fields を構造化 JSON で返す。型解決は FQN のみ（末尾一致なし）。`run_python` で RhinoCommon を呼ぶ前の API 発見用。詳細は §3.6.1 |
 | `rhino.search_types` | `{ "pattern": "AddBox", "scope"?: "all" \| "types" \| "members", "assembly"?: string, "limit"?: int }` | ロード済みアセンブリから型 / メンバ名の部分一致 (case-insensitive) を検索する。`inspect_type` 前段の FQN 解決用。デフォルトは `Rhino*` / `RhinoCommon` / `RhinoCli*` 配下に絞り込む。詳細は §3.6.2 |
 | `rhino.decompile_method` | `{ "type": "Rhino.Geometry.Box", "method": "ClosestPoint", "signature"?: "Point3d" }` | ICSharpCode.Decompiler でメソッド本体の IL を C# 復元して返す。`inspect_type` がシグネチャしか返さないのに対し、これは実装まで覗ける。overload は `signature` (カンマ区切りの型名) で絞り込む。詳細は §3.6.3 |
+| `rhino.capture_viewport` | `{ "width": int, "height": int, "viewport"?: string, "mode"?: string, "projection"?: "perspective"\|"parallel", "camera"?: [x,y,z], "target"?: [x,y,z], "zoom_extents"?: bool, "transparent_background"?: bool }` | 単一 viewport を UI thread で `RhinoView.CaptureToBitmap(Size, DisplayModeDescription)` し PNG base64 で返す。display mode は非破壊（capture overload に渡すだけ）、projection / camera / zoom_extents は viewport を mutate するが state は復元しない（冪等な再キャプチャ前提）。`transparent_background` は `DisplayPipelineAttributes.FillMode = Transparent` で実現。詳細は §3.6.4 |
 
 #### 3.6.1 `rhino.inspect_type` の詳細
 
@@ -365,6 +366,65 @@ RhinoCommon サイズで数百 MB を使うため）。プロセス停止まで�
 `methods[*].overloads[*].body` フィールドに C# を merge する。サーバ側
 ハンドラは分離維持。
 
+#### 3.6.4 `rhino.capture_viewport` の詳細
+
+AI が `run_script` / `run_python` で形状を変えた後、結果を視覚的に確認するためのキャプチャ
+ハンドラ。OS window capture (`rhino-cli screenshot`) と異なり、単一 viewport をピクセル単位
+の解像度で in-process キャプチャし、display mode / projection / camera を 1 RPC で指定できる。
+
+**Display mode は非破壊**: `RhinoView.CaptureToBitmap(Size, DisplayModeDescription)` overload
+を使うため、撮影前後で `viewport.DisplayMode` は変わらない。
+
+**projection / camera / target / zoom_extents は viewport を mutate する**: これらは
+viewport state そのものを示すので、撮影内容と等価。issue 方針として state は復元しない
+（呼び出し側が必要なら明示的に元に戻す）。
+
+**パラメータ**:
+
+| 名前 | 必須 | 説明 |
+|------|------|------|
+| `width` | ✓ | 出力 PNG 幅（ピクセル, > 0） |
+| `height` | ✓ | 出力 PNG 高さ（ピクセル, > 0） |
+| `viewport` | — | viewport 名。省略時は `doc.Views.ActiveView` |
+| `mode` | — | Display mode 名。`DisplayModeDescription.FindByName` で case-insensitive 一致（`Shaded` / `Rendered` / `Ghosted` / `X-Ray` / `Wireframe` / `Technical` / `Artistic` / `Pen` / `Arctic` / `Raytraced` / カスタム）。EnglishName で見つからない場合は LocalName を fallback |
+| `projection` | — | `"perspective"` または `"parallel"` |
+| `camera` | — | `[x, y, z]` の数値配列。`SetCameraLocation(p, false)` |
+| `target` | — | `[x, y, z]`。`SetCameraTarget(p, false)` |
+| `zoom_extents` | — | `true` で `ZoomExtents()`。`camera` / `target` とは**排他**（-32602 エラー） |
+| `transparent_background` | — | `true` で `DisplayPipelineAttributes.FillMode = Transparent` を base attributes（mode 指定があればそこから、なければ現 DisplayMode から構築）に適用してから capture |
+
+**結果スキーマ**:
+
+```jsonc
+{
+  "status": "ok",
+  "png_base64": "iVBORw0KGgo...",
+  "format": "png",
+  "width": 1280,
+  "height": 720,
+  "viewport": "Perspective",
+  "mode_applied": "Shaded"
+}
+```
+
+**適用順序**: projection → camera → target → zoom_extents → `Redraw()` → `CaptureToBitmap(size, mode|attributes)`
+
+**エラー** (-32602 / data.field):
+
+| field | 状況 |
+|-------|------|
+| `width\|height` | 数値以外、または `<= 0` |
+| `viewport` | `doc.Views.Find(name, false)` で解決失敗。`data.available` に既存名リスト |
+| `mode` | EnglishName / LocalName いずれにも一致せず。`data.available` に候補リスト |
+| `projection` | `"perspective"` / `"parallel"` 以外 |
+| `camera` / `target` | 3 要素の数値配列でない |
+| `camera\|target\|zoom_extents` | 相互排他違反（camera/target 指定 + zoom_extents=true 同時指定） |
+
+**`rhino-cli screenshot` との使い分け**:
+
+- `screenshot`: macOS `screencapture` で Rhino アプリ全体（4 viewport + toolbar + panels）を撮る。プラグイン不要、UI 全体の見た目を確認する用途
+- `capture_viewport`: in-process `CaptureToBitmap`。単一 viewport を指定 mode / camera / projection で。プラグイン経由、AI が結果検証する用途
+
 ### 3.7 API 発見プレイブック (AI 向け)
 
 AI が `run_python` で RhinoCommon を呼ぶときは、推測で API を書いて失敗
@@ -440,7 +500,7 @@ AI: run_python で
   "result_expression": "deleted" }
 ```
 
-**ビューポート PNG 出力**
+**ビューポート PNG 出力（簡易版・通常は `rhino.capture_viewport` を使う）**
 ```json
 { "source": "import scriptcontext as sc, System.Drawing as sd, System.Drawing.Imaging as sdi\nbmp = sc.doc.Views.ActiveView.CaptureToBitmap(sd.Size(1280, 720))\nbmp.Save('/tmp/v.png', sdi.ImageFormat.Png)\nbmp.Dispose()",
   "result_expression": "True" }

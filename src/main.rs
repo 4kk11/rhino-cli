@@ -10,8 +10,8 @@ use rhino_cli::commands::capabilities::{CapabilitiesArgs, CapabilitiesFormat};
 use rhino_cli::commands::doctor::DoctorArgs;
 use rhino_cli::commands::rhino::{LaunchArgs, ScreenshotArgs, ShutdownArgs};
 use rhino_cli::commands::rhino_rpc::{
-    DecompileMethodArgs, HistoryArgs, InspectTypeArgs, InspectTypeWithBodyArgs, ListCommandsArgs,
-    NewModelArgs, ProbeCommandArgs, RunScriptArgs, SearchTypesArgs,
+    CaptureViewportArgs, DecompileMethodArgs, HistoryArgs, InspectTypeArgs, InspectTypeWithBodyArgs,
+    ListCommandsArgs, NewModelArgs, ProbeCommandArgs, RunScriptArgs, SearchTypesArgs,
 };
 use rhino_cli::commands::CommandContext;
 use rhino_cli::error::{CliError, Result};
@@ -165,6 +165,39 @@ enum Commands {
         /// Comma-separated parameter type names to pick a specific overload (FullName or short Name).
         #[arg(long)]
         signature: Option<String>,
+    },
+    /// Capture a single Rhino viewport to PNG via the plugin's CaptureToBitmap.
+    CaptureViewport {
+        /// Viewport name; defaults to the active view when omitted.
+        #[arg(long)]
+        viewport: Option<String>,
+        /// Output width in pixels.
+        #[arg(long)]
+        width: u32,
+        /// Output height in pixels.
+        #[arg(long)]
+        height: u32,
+        /// Display mode name (case-insensitive: shaded | rendered | ghosted | x-ray | wireframe | custom).
+        #[arg(long)]
+        mode: Option<String>,
+        /// Projection: perspective | parallel.
+        #[arg(long)]
+        projection: Option<String>,
+        /// Camera location as "X,Y,Z".
+        #[arg(long)]
+        camera: Option<String>,
+        /// Camera target as "X,Y,Z".
+        #[arg(long)]
+        target: Option<String>,
+        /// Zoom to extents before capture. Mutually exclusive with --camera/--target.
+        #[arg(long)]
+        zoom_extents: bool,
+        /// Request a transparent background.
+        #[arg(long)]
+        transparent: bool,
+        /// Output PNG path. When omitted, the JSON-RPC result (with base64) is printed.
+        #[arg(long)]
+        out: Option<std::path::PathBuf>,
     },
     /// Launch Rhino. Use `rhino-cli wait-ready --port <PORT>` afterwards to wait for the plugin.
     Launch {
@@ -349,6 +382,32 @@ fn run(cli: Cli) -> Result<()> {
                 type_name,
                 method,
                 signature,
+            },
+        ),
+        Commands::CaptureViewport {
+            viewport,
+            width,
+            height,
+            mode,
+            projection,
+            camera,
+            target,
+            zoom_extents,
+            transparent,
+            out,
+        } => rhino_cli::commands::rhino_rpc::capture_viewport(
+            &ctx,
+            CaptureViewportArgs {
+                viewport,
+                width,
+                height,
+                mode,
+                projection,
+                camera,
+                target,
+                zoom_extents,
+                transparent,
+                out,
             },
         ),
         Commands::Launch {

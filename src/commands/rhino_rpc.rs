@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use base64::Engine;
 use serde_json::{json, Value};
 
 use crate::commands::{print_json, CommandContext};
@@ -62,6 +63,20 @@ pub struct DecompileMethodArgs {
 pub struct InspectTypeWithBodyArgs {
     pub inspect: InspectTypeArgs,
     pub with_body: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct CaptureViewportArgs {
+    pub viewport: Option<String>,
+    pub width: u32,
+    pub height: u32,
+    pub mode: Option<String>,
+    pub projection: Option<String>,
+    pub camera: Option<String>,
+    pub target: Option<String>,
+    pub zoom_extents: bool,
+    pub transparent: bool,
+    pub out: Option<PathBuf>,
 }
 
 pub fn run_script(ctx: &CommandContext, args: RunScriptArgs) -> Result<()> {
@@ -186,6 +201,93 @@ pub fn decompile_method(ctx: &CommandContext, args: DecompileMethodArgs) -> Resu
         params["signature"] = json!(signature);
     }
     let result = ctx.client().call("rhino.decompile_method", params)?;
+    print_json(&result, ctx.pretty)?;
+    Ok(())
+}
+
+fn parse_xyz(label: &str, raw: &str) -> Result<[f64; 3]> {
+    let parts: Vec<&str> = raw.split(',').map(str::trim).collect();
+    if parts.len() != 3 {
+        return Err(CliError::InvalidInput(format!(
+            "--{label} expects three comma-separated numbers, got {raw:?}"
+        )));
+    }
+    let mut out = [0.0f64; 3];
+    for (i, p) in parts.iter().enumerate() {
+        out[i] = p.parse::<f64>().map_err(|_| {
+            CliError::InvalidInput(format!(
+                "--{label} component {} is not a number: {p:?}",
+                i + 1
+            ))
+        })?;
+    }
+    Ok(out)
+}
+
+pub fn capture_viewport(ctx: &CommandContext, args: CaptureViewportArgs) -> Result<()> {
+    if args.zoom_extents && (args.camera.is_some() || args.target.is_some()) {
+        return Err(CliError::InvalidInput(
+            "--zoom-extents is mutually exclusive with --camera/--target".to_string(),
+        ));
+    }
+
+    let mut params = json!({
+        "width": args.width,
+        "height": args.height,
+    });
+    if let Some(v) = args.viewport {
+        params["viewport"] = json!(v);
+    }
+    if let Some(m) = args.mode {
+        params["mode"] = json!(m);
+    }
+    if let Some(p) = args.projection {
+        params["projection"] = json!(p);
+    }
+    if let Some(c) = args.camera {
+        params["camera"] = json!(parse_xyz("camera", &c)?);
+    }
+    if let Some(t) = args.target {
+        params["target"] = json!(parse_xyz("target", &t)?);
+    }
+    if args.zoom_extents {
+        params["zoom_extents"] = json!(true);
+    }
+    if args.transparent {
+        params["transparent_background"] = json!(true);
+    }
+
+    let result = ctx.client().call("rhino.capture_viewport", params)?;
+
+    if let Some(out_path) = args.out {
+        let b64 = result
+            .get("png_base64")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                CliError::InvalidResponse(
+                    "capture_viewport response is missing png_base64".to_string(),
+                )
+            })?;
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(b64)
+            .map_err(|e| CliError::InvalidResponse(format!("base64 decode failed: {e}")))?;
+        if let Some(parent) = out_path.parent().filter(|p| !p.as_os_str().is_empty()) {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                CliError::Other(format!(
+                    "failed to create directory {}: {e}",
+                    parent.display()
+                ))
+            })?;
+        }
+        std::fs::write(&out_path, &bytes).map_err(|e| {
+            CliError::Other(format!("failed to write {}: {e}", out_path.display()))
+        })?;
+        if !ctx.quiet {
+            println!("{}", out_path.display());
+        }
+        return Ok(());
+    }
+
     print_json(&result, ctx.pretty)?;
     Ok(())
 }
