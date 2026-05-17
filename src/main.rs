@@ -11,6 +11,7 @@ use rhino_cli::commands::doctor::DoctorArgs;
 use rhino_cli::commands::rhino::{LaunchArgs, ScreenshotArgs, ShutdownArgs};
 use rhino_cli::commands::rhino_rpc::{
     HistoryArgs, InspectTypeArgs, ListCommandsArgs, NewModelArgs, ProbeCommandArgs, RunScriptArgs,
+    SearchTypesArgs,
 };
 use rhino_cli::commands::CommandContext;
 use rhino_cli::error::{CliError, Result};
@@ -137,6 +138,20 @@ enum Commands {
         /// Include inherited members instead of declared-only.
         #[arg(long)]
         include_inherited: bool,
+    },
+    /// Search loaded assemblies for types or members whose name contains the given substring.
+    SearchTypes {
+        /// Case-insensitive substring matched against type or member names.
+        pattern: String,
+        /// Match scope: all | types | members. Defaults to all.
+        #[arg(long)]
+        scope: Option<String>,
+        /// Restrict to a specific assembly name (otherwise Rhino* / RhinoCommon / RhinoCli* are searched).
+        #[arg(long)]
+        assembly: Option<String>,
+        /// Maximum number of matches (default 50).
+        #[arg(long)]
+        limit: Option<u32>,
     },
     /// Launch Rhino. Use `rhino-cli wait-ready --port <PORT>` afterwards to wait for the plugin.
     Launch {
@@ -287,6 +302,20 @@ fn run(cli: Cli) -> Result<()> {
                 name,
                 binding,
                 include_inherited,
+            },
+        ),
+        Commands::SearchTypes {
+            pattern,
+            scope,
+            assembly,
+            limit,
+        } => rhino_cli::commands::rhino_rpc::search_types(
+            &ctx,
+            SearchTypesArgs {
+                pattern,
+                scope,
+                assembly,
+                limit,
             },
         ),
         Commands::Launch {

@@ -43,6 +43,14 @@ pub struct InspectTypeArgs {
     pub include_inherited: bool,
 }
 
+#[derive(Clone, Debug)]
+pub struct SearchTypesArgs {
+    pub pattern: String,
+    pub scope: Option<String>,
+    pub assembly: Option<String>,
+    pub limit: Option<u32>,
+}
+
 pub fn run_script(ctx: &CommandContext, args: RunScriptArgs) -> Result<()> {
     let mut params = json!({
         "script": args.script,
@@ -136,6 +144,22 @@ pub fn inspect_type(ctx: &CommandContext, args: InspectTypeArgs) -> Result<()> {
         params["binding"] = json!(binding);
     }
     let result = ctx.client().call("rhino.inspect_type", params)?;
+    print_json(&result, ctx.pretty)?;
+    Ok(())
+}
+
+pub fn search_types(ctx: &CommandContext, args: SearchTypesArgs) -> Result<()> {
+    let mut params = json!({ "pattern": args.pattern });
+    if let Some(scope) = args.scope {
+        params["scope"] = json!(scope);
+    }
+    if let Some(assembly) = args.assembly {
+        params["assembly"] = json!(assembly);
+    }
+    if let Some(limit) = args.limit {
+        params["limit"] = json!(limit);
+    }
+    let result = ctx.client().call("rhino.search_types", params)?;
     print_json(&result, ctx.pretty)?;
     Ok(())
 }

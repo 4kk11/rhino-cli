@@ -376,7 +376,29 @@ Public Instance + Public Static）。`--include-inherited` で親クラスのメ
 XML doc `<summary>` 取り込みは Phase B、メソッド body の C# 復元は Phase D
 で `decompile-method` として別ハンドラに追加予定。
 
-#### 4.2.16 `screenshot`
+#### 4.2.16 `search-types`
+
+```
+rhino-cli search-types <PATTERN> [--scope all|types|members] [--assembly <NAME>] [--limit <N>]
+```
+
+`rhino.search_types` を呼び、ロード済みアセンブリから型名 / メンバ名の
+部分一致（case-insensitive）を返す。`inspect-type` が **FQN のみ**を
+受理する前提なので、AI が短い名前しか知らないときの **FQN 解決ステップ**
+として使う。
+
+デフォルト assembly フィルタは `Rhino*` / `RhinoCommon` / `RhinoCli*` の
+prefix。広げたい場合は `--assembly <NAME>` で完全一致指定。出力は
+`limit` (既定 50) で打ち切られ、超過時は `truncated: true`。
+
+`type.IsVisible` で internal 型は除外し、property/event accessor などの
+`IsSpecialName` メンバも除外する。
+
+典型ワークフロー: `search-types AddBox` → `Rhino.DocObjects.Tables.ObjectTable.AddBox`
+を発見 → `inspect-type Rhino.DocObjects.Tables.ObjectTable` で overload を確認 →
+`run-python` で実装。
+
+#### 4.2.17 `screenshot`
 
 ```
 rhino-cli screenshot [--app "Rhino 8"] [--out <PNG>] [--window-id <ID>] [--no-activate] [--no-shadow]

@@ -182,6 +182,7 @@ null
 | `rhino.list_commands` | `null` または `{ "pattern": "Box", "include_unloaded": false }` | Rhino に登録済みのコマンド名一覧を返す。AI agent のコマンド発見用 |
 | `rhino.probe_command` | `{ "name": "Box" }` | コマンドを `! _-{Name} _Cancel × 5` で起動・即時中断し（300ms 経過時には background thread から `RhinoApp.SendKeystrokes("")` で Esc も送出）、最初の Get プロンプトを `RhinoApp.CommandPrompt` から、Write/WriteLine 出力を `RhinoApp.CapturedCommandWindowStrings` から捕獲して返す。option short code は `(D)` `(P)` 等 ASCII 安定で `_D` `_P` としてそのまま渡せる |
 | `rhino.inspect_type` | `{ "name": "Rhino.Geometry.Box", "binding"?: "public" \| "public_instance" \| "public_static" \| "non_public" \| "all", "include_inherited"?: bool }` | `System.Reflection` でロード済みの .NET 型を内省し、constructors / properties / methods（オーバーロードはグルーピング）/ events / fields を構造化 JSON で返す。型解決は FQN のみ（末尾一致なし）。`run_python` で RhinoCommon を呼ぶ前の API 発見用。詳細は §3.2.1 |
+| `rhino.search_types` | `{ "pattern": "AddBox", "scope"?: "all" \| "types" \| "members", "assembly"?: string, "limit"?: int }` | ロード済みアセンブリから型 / メンバ名の部分一致 (case-insensitive) を検索する。`inspect_type` 前段の FQN 解決用。デフォルトは `Rhino*` / `RhinoCommon` / `RhinoCli*` 配下に絞り込む。詳細は §3.2.2 |
 
 #### 3.2.1 `rhino.inspect_type` の詳細
 
@@ -274,6 +275,48 @@ attach する。XML が存在しない、メンバ ID が見つからない場�
 返す（エラーにはならない）。RhinoCommon の XML は通常英語のみ同梱なので、
 日本語ロケールでも summary は英語で返る。詳細な lookup 規約は
 `docs/plugin-integration.md` の「XML doc lookup」を参照。
+
+#### 3.2.2 `rhino.search_types` の詳細
+
+`inspect_type` は FQN（完全修飾名）でしか型を解決しないため、AI が短い
+名前しか知らないときに **FQN を引くためのインデックス検索ハンドラ**。
+全 ロード済み アセンブリを `AppDomain.CurrentDomain.GetAssemblies()` で
+巡って、型名およびパブリックメンバ名に対して部分一致（case-insensitive）で
+ヒットを返す。
+
+**パラメータ**:
+
+| 名前 | 既定値 | 説明 |
+|------|--------|------|
+| `pattern` | 必須 | 部分一致される文字列。空はエラー (-32602) |
+| `scope` | `"all"` | `"all"` / `"types"` / `"members"` |
+| `assembly` | 未指定 | アセンブリ名を完全一致で指定するとそれのみ対象。未指定時は `Rhino*` / `RhinoCommon` / `RhinoCli*` に絞り込み |
+| `limit` | 50 | 最大マッチ数。超えた場合 `truncated: true` |
+
+**`type.IsVisible`** で外部から見えない internal 型は除外する。`MethodBase`
+の `IsSpecialName` (= property/event accessor) も除外。
+
+**結果スキーマ**:
+
+```jsonc
+{
+  "matches": [
+    { "kind": "type", "full_name": "Rhino.Geometry.Box", "member": null, "assembly": "RhinoCommon" },
+    { "kind": "method", "full_name": "Rhino.DocObjects.Tables.ObjectTable", "member": "AddBox", "assembly": "RhinoCommon" }
+  ],
+  "truncated": false
+}
+```
+
+`kind` は `"type" | "method" | "property" | "field" | "event" | "constructor" | "member"`。
+member kinds の `full_name` は **DeclaringType の FQN**、`member` は
+メンバ名。type kind の `member` は `null`。
+
+**典型ワークフロー**:
+
+1. `search_types AddBox` → `ObjectTable.AddBox` (method) と `Box` (type) などが返る
+2. AI が `inspect_type Rhino.DocObjects.Tables.ObjectTable` を呼んで overload を確認
+3. シグネチャに合わせて `run_python` でコードを書く
 
 #### `rhino.run_python` の代表レシピ
 
