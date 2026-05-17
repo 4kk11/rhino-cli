@@ -181,11 +181,11 @@ null
 | `rhino.clear_command_history` | `null` | Rhino history console buffer を消去する |
 | `rhino.list_commands` | `null` または `{ "pattern": "Box", "include_unloaded": false }` | Rhino に登録済みのコマンド名一覧を返す。AI agent のコマンド発見用 |
 | `rhino.probe_command` | `{ "name": "Box" }` | コマンドを `! _-{Name} _Cancel × 5` で起動・即時中断し（300ms 経過時には background thread から `RhinoApp.SendKeystrokes("")` で Esc も送出）、最初の Get プロンプトを `RhinoApp.CommandPrompt` から、Write/WriteLine 出力を `RhinoApp.CapturedCommandWindowStrings` から捕獲して返す。option short code は `(D)` `(P)` 等 ASCII 安定で `_D` `_P` としてそのまま渡せる |
-| `rhino.inspect_type` | `{ "name": "Rhino.Geometry.Box", "binding"?: "public" \| "public_instance" \| "public_static" \| "non_public" \| "all", "include_inherited"?: bool }` | `System.Reflection` でロード済みの .NET 型を内省し、constructors / properties / methods（オーバーロードはグルーピング）/ events / fields を構造化 JSON で返す。型解決は FQN のみ（末尾一致なし）。`run_python` で RhinoCommon を呼ぶ前の API 発見用。詳細は §3.2.1 |
-| `rhino.search_types` | `{ "pattern": "AddBox", "scope"?: "all" \| "types" \| "members", "assembly"?: string, "limit"?: int }` | ロード済みアセンブリから型 / メンバ名の部分一致 (case-insensitive) を検索する。`inspect_type` 前段の FQN 解決用。デフォルトは `Rhino*` / `RhinoCommon` / `RhinoCli*` 配下に絞り込む。詳細は §3.2.2 |
-| `rhino.decompile_method` | `{ "type": "Rhino.Geometry.Box", "method": "ClosestPoint", "signature"?: "Point3d" }` | ICSharpCode.Decompiler でメソッド本体の IL を C# 復元して返す。`inspect_type` がシグネチャしか返さないのに対し、これは実装まで覗ける。overload は `signature` (カンマ区切りの型名) で絞り込む。詳細は §3.2.3 |
+| `rhino.inspect_type` | `{ "name": "Rhino.Geometry.Box", "binding"?: "public" \| "public_instance" \| "public_static" \| "non_public" \| "all", "include_inherited"?: bool }` | `System.Reflection` でロード済みの .NET 型を内省し、constructors / properties / methods（オーバーロードはグルーピング）/ events / fields を構造化 JSON で返す。型解決は FQN のみ（末尾一致なし）。`run_python` で RhinoCommon を呼ぶ前の API 発見用。詳細は §3.6.1 |
+| `rhino.search_types` | `{ "pattern": "AddBox", "scope"?: "all" \| "types" \| "members", "assembly"?: string, "limit"?: int }` | ロード済みアセンブリから型 / メンバ名の部分一致 (case-insensitive) を検索する。`inspect_type` 前段の FQN 解決用。デフォルトは `Rhino*` / `RhinoCommon` / `RhinoCli*` 配下に絞り込む。詳細は §3.6.2 |
+| `rhino.decompile_method` | `{ "type": "Rhino.Geometry.Box", "method": "ClosestPoint", "signature"?: "Point3d" }` | ICSharpCode.Decompiler でメソッド本体の IL を C# 復元して返す。`inspect_type` がシグネチャしか返さないのに対し、これは実装まで覗ける。overload は `signature` (カンマ区切りの型名) で絞り込む。詳細は §3.6.3 |
 
-#### 3.2.1 `rhino.inspect_type` の詳細
+#### 3.6.1 `rhino.inspect_type` の詳細
 
 `run_python` で AI が知らない型を扱う前に、constructor のオーバーロードや
 property の型を事前確認するための発見ハンドラ。`System.Reflection` で
@@ -277,7 +277,7 @@ attach する。XML が存在しない、メンバ ID が見つからない場�
 日本語ロケールでも summary は英語で返る。詳細な lookup 規約は
 `docs/plugin-integration.md` の「XML doc lookup」を参照。
 
-#### 3.2.2 `rhino.search_types` の詳細
+#### 3.6.2 `rhino.search_types` の詳細
 
 `inspect_type` は FQN（完全修飾名）でしか型を解決しないため、AI が短い
 名前しか知らないときに **FQN を引くためのインデックス検索ハンドラ**。
@@ -319,7 +319,7 @@ member kinds の `full_name` は **DeclaringType の FQN**、`member` は
 2. AI が `inspect_type Rhino.DocObjects.Tables.ObjectTable` を呼んで overload を確認
 3. シグネチャに合わせて `run_python` でコードを書く
 
-#### 3.2.3 `rhino.decompile_method` の詳細
+#### 3.6.3 `rhino.decompile_method` の詳細
 
 `inspect_type` がメソッドの **インターフェース** を返すのに対し、本ハンドラは
 **実装** (IL を C# 復元) を返す。AI がメソッドの内部処理を読みたい場面
@@ -364,6 +364,53 @@ RhinoCommon サイズで数百 MB を使うため）。プロセス停止まで�
 指定メソッドの全 overload について自動で `decompile_method` を呼び、
 `methods[*].overloads[*].body` フィールドに C# を merge する。サーバ側
 ハンドラは分離維持。
+
+### 3.7 API 発見プレイブック (AI 向け)
+
+AI が `run_python` で RhinoCommon を呼ぶときは、推測で API を書いて失敗
+する前に **次の順で発見動作を取る**。すべての発見手段は rhino-cli 内蔵
+ハンドラで完結し、外部 MCP は不要。
+
+| 順 | やること | 使うハンドラ | 何が得られるか |
+|----|---------|--------------|---------------|
+| 1 | 短い名前から FQN を引く | `rhino.search_types` | `Box` → `Rhino.Geometry.Box` などの FQN 候補 |
+| 2 | FQN から型の全貌を取る | `rhino.inspect_type` | constructor のオーバーロード、property の型、method のシグネチャ、XML doc `<summary>` |
+| 3 | 実装まで読みたい | `rhino.decompile_method` | メソッド本体の C# 復元（control flow / helper 呼び出し） |
+| 4 | 実機の object に動的に聞きたい | `rhino.run_python` で `dir()` / `getmembers()` | binding の小文字大文字、IronPython でのメンバ名 |
+| 5 | 試して失敗したら traceback を読む | `rhino.run_python` の error フィールド | `AttributeError`, `OverloadResolutionException` が次の試行のヒントになる |
+
+**典型シーケンス**:
+
+```
+ユーザー: 「箱を中央に作って」
+  ↓
+AI: search-types Box --scope types
+  → Rhino.Geometry.Box が見つかる
+  ↓
+AI: inspect-type Rhino.Geometry.Box
+  → constructor が 6 つ、(Plane, Interval, Interval, Interval) が
+    自然な形と分かる
+  ↓
+AI: search-types AddBox --scope members
+  → Rhino.DocObjects.Tables.ObjectTable.AddBox を発見
+  ↓
+AI: inspect-type Rhino.DocObjects.Tables.ObjectTable
+  → AddBox の overloads が (Box) / (Box, Attr) / (Box, Attr, History)
+    と判明
+  ↓
+AI: run_python で
+  bb = rg.BoundingBox(rg.Point3d(-5,-5,0), rg.Point3d(5,5,5))
+  sc.doc.Objects.AddBox(rg.Box(bb))
+```
+
+**境界**:
+
+- 1〜3 はサーバ往復が発生するので、`inspect_type` の結果は AI 側で
+  キャッシュして同じ型に対しては 1 度しか呼ばない
+- `decompile_method` は重い (初回 RhinoCommon ロードで数百 MB)。
+  シグネチャだけで足りる場合はスキップする
+- `run_python` の `dir()` は単体では method overload の引数型を返さない。
+  必ず先に `inspect_type` で構造を取る
 
 #### `rhino.run_python` の代表レシピ
 

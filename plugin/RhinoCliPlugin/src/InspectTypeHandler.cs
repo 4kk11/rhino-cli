@@ -5,7 +5,7 @@ using RhinoCli.Server.Reflection;
 namespace RhinoCliPlugin;
 
 [HandlerMetadataAttribute(
-    "Inspect a .NET type by fully qualified name (FQN) and return its constructors, properties, methods (grouped by overload), events, and fields as structured JSON. The handler uses System.Reflection against the assemblies currently loaded in the Rhino process, so plugin-added types are covered automatically. Resolution is FQN-only (e.g. `Rhino.Geometry.Box`); use `rhino.search_types` first if you only know a short name. XML doc summaries are not attached in this version.",
+    "Inspect a .NET type by fully qualified name (FQN) and return its constructors, properties, methods (grouped by overload), events, and fields as structured JSON. The handler uses System.Reflection against the assemblies currently loaded in the Rhino process, so plugin-added types are covered automatically. Resolution is FQN-only (e.g. `Rhino.Geometry.Box`); use `rhino.search_types` first if you only know a short name. XML doc `<summary>` is attached to the type, each member, and each parameter when an `<AssemblyName>.xml` file (e.g. `RhinoCommon.xml`) is found beside the loaded assembly.",
     ParamsSchema = "{ name: string, binding?: \"public\" | \"public_instance\" | \"public_static\" | \"non_public\" | \"all\", include_inherited?: boolean }",
     ResultSchema = "{ full_name: string, assembly: string, kind: \"class\" | \"struct\" | \"interface\" | \"enum\", is_abstract: boolean, is_sealed: boolean, base_type: string?, interfaces: string[], constructors: object[], properties: object[], methods: object[], events: object[], fields: object[] }",
     Examples = new[]
