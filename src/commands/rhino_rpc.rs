@@ -36,6 +36,13 @@ pub struct ProbeCommandArgs {
     pub name: String,
 }
 
+#[derive(Clone, Debug)]
+pub struct InspectTypeArgs {
+    pub name: String,
+    pub binding: Option<String>,
+    pub include_inherited: bool,
+}
+
 pub fn run_script(ctx: &CommandContext, args: RunScriptArgs) -> Result<()> {
     let mut params = json!({
         "script": args.script,
@@ -116,6 +123,19 @@ pub fn list_commands(ctx: &CommandContext, args: ListCommandsArgs) -> Result<()>
 pub fn probe_command(ctx: &CommandContext, args: ProbeCommandArgs) -> Result<()> {
     let params = json!({ "name": args.name });
     let result = ctx.client().call("rhino.probe_command", params)?;
+    print_json(&result, ctx.pretty)?;
+    Ok(())
+}
+
+pub fn inspect_type(ctx: &CommandContext, args: InspectTypeArgs) -> Result<()> {
+    let mut params = json!({
+        "name": args.name,
+        "include_inherited": args.include_inherited,
+    });
+    if let Some(binding) = args.binding {
+        params["binding"] = json!(binding);
+    }
+    let result = ctx.client().call("rhino.inspect_type", params)?;
     print_json(&result, ctx.pretty)?;
     Ok(())
 }

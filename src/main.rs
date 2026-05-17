@@ -10,7 +10,7 @@ use rhino_cli::commands::capabilities::{CapabilitiesArgs, CapabilitiesFormat};
 use rhino_cli::commands::doctor::DoctorArgs;
 use rhino_cli::commands::rhino::{LaunchArgs, ScreenshotArgs, ShutdownArgs};
 use rhino_cli::commands::rhino_rpc::{
-    HistoryArgs, ListCommandsArgs, NewModelArgs, ProbeCommandArgs, RunScriptArgs,
+    HistoryArgs, InspectTypeArgs, ListCommandsArgs, NewModelArgs, ProbeCommandArgs, RunScriptArgs,
 };
 use rhino_cli::commands::CommandContext;
 use rhino_cli::error::{CliError, Result};
@@ -126,6 +126,17 @@ enum Commands {
     ProbeCommand {
         /// Rhino command name. English or localized names are both accepted.
         name: String,
+    },
+    /// Inspect a .NET type loaded in the Rhino process via System.Reflection. Use the fully qualified name (e.g. Rhino.Geometry.Box).
+    InspectType {
+        /// Fully qualified type name.
+        name: String,
+        /// Member visibility filter: public | public_instance | public_static | non_public | all.
+        #[arg(long)]
+        binding: Option<String>,
+        /// Include inherited members instead of declared-only.
+        #[arg(long)]
+        include_inherited: bool,
     },
     /// Launch Rhino. Use `rhino-cli wait-ready --port <PORT>` afterwards to wait for the plugin.
     Launch {
@@ -266,6 +277,18 @@ fn run(cli: Cli) -> Result<()> {
         Commands::ProbeCommand { name } => {
             rhino_cli::commands::rhino_rpc::probe_command(&ctx, ProbeCommandArgs { name })
         }
+        Commands::InspectType {
+            name,
+            binding,
+            include_inherited,
+        } => rhino_cli::commands::rhino_rpc::inspect_type(
+            &ctx,
+            InspectTypeArgs {
+                name,
+                binding,
+                include_inherited,
+            },
+        ),
         Commands::Launch {
             app,
             restart,

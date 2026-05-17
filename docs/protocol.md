@@ -181,6 +181,84 @@ null
 | `rhino.clear_command_history` | `null` | Rhino history console buffer を消去する |
 | `rhino.list_commands` | `null` または `{ "pattern": "Box", "include_unloaded": false }` | Rhino に登録済みのコマンド名一覧を返す。AI agent のコマンド発見用 |
 | `rhino.probe_command` | `{ "name": "Box" }` | コマンドを `! _-{Name} _Cancel × 5` で起動・即時中断し（300ms 経過時には background thread から `RhinoApp.SendKeystrokes("")` で Esc も送出）、最初の Get プロンプトを `RhinoApp.CommandPrompt` から、Write/WriteLine 出力を `RhinoApp.CapturedCommandWindowStrings` から捕獲して返す。option short code は `(D)` `(P)` 等 ASCII 安定で `_D` `_P` としてそのまま渡せる |
+| `rhino.inspect_type` | `{ "name": "Rhino.Geometry.Box", "binding"?: "public" \| "public_instance" \| "public_static" \| "non_public" \| "all", "include_inherited"?: bool }` | `System.Reflection` でロード済みの .NET 型を内省し、constructors / properties / methods（オーバーロードはグルーピング）/ events / fields を構造化 JSON で返す。型解決は FQN のみ（末尾一致なし）。`run_python` で RhinoCommon を呼ぶ前の API 発見用。詳細は §3.2.1 |
+
+#### 3.2.1 `rhino.inspect_type` の詳細
+
+`run_python` で AI が知らない型を扱う前に、constructor のオーバーロードや
+property の型を事前確認するための発見ハンドラ。`System.Reflection` で
+Rhino プロセスにロード済みのアセンブリを直接 reflection するので、
+プラグインが追加した型もそのまま対象になる。
+
+**型解決ポリシー**: `Type.GetType(name)` → 失敗時は
+`AppDomain.CurrentDomain.GetAssemblies()` を巡って `Assembly.GetType(name)`。
+**末尾一致フォールバックは行わない** (`Box` だけで `Rhino.Geometry.Box`
+を解決する等)。短い名前から FQN を引きたい場合はまず `rhino.search_types`
+（Phase C で追加予定）を使う。
+
+**binding パラメータ**:
+
+| 値 | 含まれるメンバ |
+|----|----------------|
+| `"public"` (デフォルト) | Public Instance + Public Static |
+| `"public_instance"` | Public Instance のみ |
+| `"public_static"` | Public Static のみ |
+| `"non_public"` | NonPublic + Public, Instance + Static |
+| `"all"` | NonPublic + Public, Instance + Static |
+
+**`include_inherited`**: デフォルトは `false` (DeclaredOnly)。`true` で
+親クラスのメンバも結果に含める。constructors は常に DeclaredOnly。
+
+**結果スキーマ抜粋**:
+
+```jsonc
+{
+  "full_name": "Rhino.Geometry.Box",
+  "assembly": "RhinoCommon",
+  "kind": "struct",          // "class" | "struct" | "interface" | "enum"
+  "is_abstract": false,
+  "is_sealed": false,
+  "base_type": "System.ValueType",
+  "interfaces": ["..."],
+  "constructors": [
+    { "params": [{"name": "plane", "type": "Rhino.Geometry.Plane", ...}, ...], "is_public": true }
+  ],
+  "properties": [
+    { "name": "Center", "type": "Rhino.Geometry.Point3d", "get": true, "set": false, "static": false }
+  ],
+  "methods": [
+    {
+      "name": "PointAt",
+      "static": false,
+      "overloads": [
+        {
+          "params": [...],
+          "return_type": "Rhino.Geometry.Point3d",
+          "is_generic": false,
+          "generic_args": []
+        }
+      ]
+    }
+  ],
+  "events": [...],
+  "fields": [...]
+}
+```
+
+**param オブジェクト**:
+
+```jsonc
+{
+  "name": "plane",
+  "type": "Rhino.Geometry.Plane",
+  "is_out": false,
+  "is_ref": false,
+  "has_default": false,
+  "default_value": null
+}
+```
+
+XML doc の `<summary>` 取り込みは Phase B で追加予定。
 
 #### `rhino.run_python` の代表レシピ
 

@@ -354,7 +354,29 @@ AI agent の使い分け:
 - `probe-command` で実機の最初のプロンプト・オプションを動的取得する
 - 取得した option short code と座標 syntax (`x,y,z`) で `run-script` を組み立てて実行する
 
-#### 4.2.15 `screenshot`
+#### 4.2.15 `inspect-type`
+
+```
+rhino-cli inspect-type <FQN> [--binding <B>] [--include-inherited]
+```
+
+`rhino.inspect_type` を呼び、Rhino プロセスにロード済みの .NET 型を
+`System.Reflection` で内省して JSON で返す。出力は constructors / properties /
+methods（オーバーロードはグルーピング）/ events / fields の構造化情報。
+`run_python` で RhinoCommon を直接叩く前に、AI が constructor の引数型や
+property の static 性を確認するための **API 発見ハンドラ**。
+
+型解決は **FQN のみ**（`Rhino.Geometry.Box` 等）。末尾一致フォールバックは
+誤マッチ防止のため採用しない。短い名前から FQN を引きたい場合は将来追加する
+`search-types` を使う前提。`--binding` は `public` / `public_instance` /
+`public_static` / `non_public` / `all` から選択（既定 `public` =
+Public Instance + Public Static）。`--include-inherited` で親クラスのメンバも
+含める（既定 DeclaredOnly）。
+
+XML doc `<summary>` 取り込みは Phase B、メソッド body の C# 復元は Phase D
+で `decompile-method` として別ハンドラに追加予定。
+
+#### 4.2.16 `screenshot`
 
 ```
 rhino-cli screenshot [--app "Rhino 8"] [--out <PNG>] [--window-id <ID>] [--no-activate] [--no-shadow]

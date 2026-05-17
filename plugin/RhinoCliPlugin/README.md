@@ -42,6 +42,7 @@ rhino-cli call rhino_cli.echo '{"value":42}' --port 50061
 rhino-cli new-model --port 50061
 rhino-cli list-commands --pattern Box --port 50061
 rhino-cli probe-command Box --port 50061
+rhino-cli inspect-type Rhino.Geometry.Box --port 50061
 rhino-cli run-script "_Zoom _Extents" --port 50061
 rhino-cli history --tail 20 --port 50061
 rhino-cli screenshot --out /tmp/rhino-cli-plugin.png
@@ -61,5 +62,6 @@ The plugin exposes a deliberately small surface. Anything that can be expressed 
 | `rhino.command_history` / `rhino.clear_command_history` | Read or clear Rhino's command history (reflects the Eto CommandHistoryViewModel via reflection — not feasible from `run_python` alone). |
 | `rhino.list_commands` | Enumerate Rhino command names known to the running instance. |
 | `rhino.probe_command` | Start `! _-{Name} _Cancel × 5` and capture the first Get prompt + Write/WriteLine output. Uses background-thread `RhinoApp.SendKeystrokes("")` for forced cancel; not reproducible from `run_python`. |
+| `rhino.inspect_type` | Reflect on a .NET type loaded in the Rhino process and return its constructors, properties, methods (overload-grouped), events, and fields as structured JSON. AI agents use this to discover RhinoCommon API signatures before writing `run_python`. FQN-only resolution; pair with the upcoming `search_types` to look up FQNs from short names. |
 
 For workflows previously covered by `save_document`, `open_document`, `list_objects`, `delete_objects`, `add_box`, `add_box_3point`, and `capture_viewport`, see the recipe block under `rhino.run_python` in `docs/protocol.md`.
