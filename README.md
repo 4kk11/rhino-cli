@@ -1,21 +1,12 @@
 # rhino-cli
 
-Rust 製の汎用 Rhino プラグイン用 RPC クライアント + C# サーバライブラリ。任意の Rhino プラグインに JSON-RPC 2.0 over TCP インタフェースを追加し、CLI から呼び出して E2E テスト・自動化・スクリプティングを実現する。
+A generic JSON-RPC 2.0 client (Rust CLI) and server library (C#) for Rhino plugins. Drop the server library into any Rhino plugin to expose its operations over TCP, then drive them from the CLI for end-to-end testing, automation, and scripting. The bundled `RhinoCliPlugin` provides the standard Rhino automation handlers used by AI agents and humans alike.
 
-> **Status**: Pre-alpha MVP. Rust CLI, C# server library, mock E2E runner, and RhinoCliPlugin are implemented.
+> Status: Pre-alpha MVP. The Rust CLI, C# server library, mock E2E runner, and `RhinoCliPlugin` are all implemented.
 
-## 構成
+日本語版: [README.ja.md](README.ja.md)
 
-| 場所 | 内容 |
-|------|------|
-| `src/` | Rust 製 CLI バイナリ (`rhino-cli`) |
-| `server/RhinoCli.Server/` | C# クラスライブラリ (TCP server + Router + 組込 handler) |
-| `plugin/RhinoCliPlugin/` | rhino-cli 同梱の Rhino automation プラグイン |
-| `docs/design.md` | 設計書 |
-| `docs/tasks.md` | 実装タスクリスト |
-| `docs/protocol.md` | JSON-RPC 2.0 プロトコル詳細 |
-
-## クイック概念
+## Architecture
 
 ```
 ┌──────────────┐    JSON-RPC 2.0 over TCP   ┌────────────────────────────────┐
@@ -28,23 +19,34 @@ Rust 製の汎用 Rhino プラグイン用 RPC クライアント + C# サーバ
 └──────────────┘                             └────────────────────────────────┘
 ```
 
-各 Rhino プラグインは `RhinoCli.Server` を NuGet 依存として組み込み、自身の handler だけ登録する。`rhino-cli` は (現状の Rhino で動いている) いずれかのプラグインのポートに接続して RPC を発行する。
+Each Rhino plugin embeds `RhinoCli.Server` as a NuGet dependency and registers its own handlers. `rhino-cli` connects to whichever plugin port is running inside the live Rhino process and dispatches RPC calls.
 
-## 想定ユースケース
+## Repository Layout
 
-- **E2E テスト**: 複数プラグインの自動回帰テスト (Claude Code が自律実行)
-- **自動化**: バッチジョブ・CI 連携
-- **デバッグ**: live な Rhino インスタンスへの状態クエリ
+| Path | Purpose |
+|------|---------|
+| `src/` | Rust CLI binary (`rhino-cli`) |
+| `server/RhinoCli.Server/` | C# class library: TCP server, message router, built-in handlers |
+| `server/RhinoCli.Server.Tests/` | Server unit tests |
+| `server/RhinoCli.TestRunner/` | Mock end-to-end runner |
+| `plugin/RhinoCliPlugin/` | Bundled Rhino automation plugin |
+| `docs/` | Design, protocol, integration, task list |
 
-## 依存対象
+## Use Cases
 
-- Rust 1.75+ (CLI ビルド)
-- .NET 7.0 SDK (server lib ビルド)
-- Rhino 8 (host)
+- End-to-end regression testing across multiple Rhino plugins (driven autonomously by AI agents)
+- Batch automation and CI integration
+- Live state inspection and debugging of a running Rhino instance
+
+## Requirements
+
+- Rust 1.75+ (to build the CLI)
+- .NET 7.0 SDK (to build the server library and plugin)
+- Rhino 8 (host application)
 
 ## Quick Start
 
-Recommended task runner:
+Recommended task runner (cargo-make):
 
 ```bash
 cargo install cargo-make
@@ -58,96 +60,126 @@ Individual tasks:
 cargo make test
 cargo make build
 cargo make install-cli
+cargo make build-plugin
 ```
 
 Equivalent raw commands:
 
 ```bash
 cargo build
-cargo test
+cargo test -- --test-threads=1
 dotnet test server/RhinoCli.Server.Tests/RhinoCli.Server.Tests.csproj
 dotnet build server/RhinoCli.TestRunner/RhinoCli.TestRunner.csproj
-```
-
-Install the CLI locally:
-
-```bash
 cargo install --path .
 ```
 
-Run against a plugin server:
+## Running Against a Plugin Server
+
+A typical session against the bundled plugin:
 
 ```bash
-rhino-cli doctor --port 50061
 rhino-cli plugin set-port 50061
 rhino-cli launch --new-model
 rhino-cli wait-ready --port 50061 --timeout 120
-rhino-cli ping --port 50061 --verbose
-rhino-cli capabilities --port 50061
-rhino-cli capabilities --method rhino.run_script --port 50061
-rhino-cli list-plugins --port 50061
+rhino-cli doctor --port 50061
+rhino-cli capabilities --format agent --port 50061
 rhino-cli call system.version --port 50061 --pretty
 rhino-cli new-model --port 50061
-rhino-cli list-commands --pattern Box --port 50061
-rhino-cli probe-command Box --port 50061
-rhino-cli inspect-type Rhino.Geometry.Box --port 50061
-rhino-cli search-types AddBox --port 50061
-rhino-cli decompile-method Rhino.Geometry.Box ClosestPoint --signature Point3d --port 50061
 rhino-cli run-script "_Zoom _Extents" --port 50061
-rhino-cli history --tail 50 --port 50061
-rhino-cli call rhino.run_python '{"source":"import scriptcontext as sc; print(sc.doc.Objects.Count)"}' --port 50061
-rhino-cli call rhino.run_python '{"source":"import scriptcontext as sc, Rhino.FileIO as fio\nopts=fio.FileWriteOptions(); opts.FileVersion=8; opts.SuppressDialogBoxes=True\nok=sc.doc.WriteFile(\"/tmp/test.3dm\", opts)","result_expression":"ok"}' --port 50061
-rhino-cli screenshot --out /tmp/rhino-window.png
+rhino-cli capture-viewport --width 1280 --height 720 --out /tmp/viewport.png --port 50061
 rhino-cli shutdown
 ```
 
-`launch` and `shutdown` currently automate Rhino on macOS via the installed app name. The default app is `Rhino 8`; use `--app "RhinoWIP"` or `--app "Rhino 7"` when needed. `launch` only starts Rhino — it does not configure plugin ports and does not wait for the RPC endpoint. Use `rhino-cli wait-ready --port <PORT>` after launch when you need to block until the plugin answers `system.ping`. `launch --restart` asks Rhino to quit before relaunching. `launch --new-model` opens a modeling window at startup instead of leaving Rhino's start window active. `launch --script "<Rhino command script>"` passes a Rhino `-runscript` argument.
+The responsibilities are intentionally split: `launch` only starts the Rhino process, `plugin set-port` configures the bundled plugin's listening port, and `wait-ready` blocks until the RPC endpoint answers `system.ping`. Combine them rather than expecting any single command to do all three.
 
-`plugin set-port <PORT>` writes the bundled RhinoCliPlugin's launch config (`~/Library/Application Support/rhino-cli/RhinoCliPlugin/config.json` on macOS). The plugin reads it the next time Rhino loads, so call this before `launch` (or before restarting Rhino) when you need to change the listening port. `plugin show-config` prints the current contents. Third-party plugins that embed `RhinoCli.Server` configure their own ports independently; `plugin set-port` only affects the bundled plugin.
+## CLI Subcommand Reference
 
-`doctor` answers whether Rhino and the RhinoCliPlugin RPC endpoint are reachable. `capabilities` is the self-describing command for AI agents and humans: it prints registered handlers, params, result shapes, examples, side effects, and dedicated CLI wrappers. Use `--format json`, `--format markdown`, or `--format agent` when another tool needs structured context.
+| Command | Key flags | Description |
+|---------|-----------|-------------|
+| `ping` | — | Call `system.ping`. |
+| `doctor` | `--app` | Diagnose Rhino + plugin reachability. |
+| `capabilities` | `--method`, `--format {text,json,markdown,agent}` | Print the self-describing handler catalog. |
+| `call` | `<method> [params_json]`, `--params-file`, `--param k=v` | Universal RPC entry point. |
+| `list-methods` | — | List registered RPC method names. |
+| `list-plugins` | — | List reachable `RhinoCli.Server` plugin instances (`<id>\t<port>`). |
+| `wait-ready` | (uses `--timeout`) | Block until `system.ping` succeeds. |
+| `launch` | `--app`, `--restart`, `--new-model`, `--script` | Start Rhino (macOS). |
+| `shutdown` | `--app` | Ask Rhino to quit and wait for exit (macOS). |
+| `plugin set-port` | `<port>` | Write the bundled `RhinoCliPlugin` launch config. |
+| `plugin show-config` | — | Print the current bundled plugin launch config. |
+| `screenshot` | `--out`, `--no-shadow`, `--no-activate`, `--window-id` | macOS-level window capture via `screencapture`. |
+| `capture-viewport` | `--width`, `--height` (required), `--viewport`, `--mode`, `--projection`, `--camera`, `--target`, `--zoom-extents`, `--transparent`, `--out` | In-process viewport capture (PNG, base64). |
+| `new-model` | `--template <3dm>` | Create a new active document. |
+| `run-script` | `<script>`, `--echo`, `--mru`, `--fail-on-false` | Execute a Rhino command script. |
+| `history` | `--tail`, `--clear`, `--json` | Read or clear Rhino command history. |
+| `list-commands` | `--pattern`, `--include-unloaded` | List Rhino command names. |
+| `probe-command` | `<name>` | Start a command and capture its first prompt + option labels. |
+| `inspect-type` | `<fqn>`, `--binding`, `--include-inherited`, `--with-body` | Reflect a .NET type loaded inside Rhino. |
+| `search-types` | `<pattern>`, `--scope`, `--assembly`, `--limit` | Find types or members by case-insensitive substring. |
+| `decompile-method` | `<type> <method>`, `--signature` | Decompile a single .NET method to C#. |
 
-`call` is the universal execution path for any registered handler.
+Global flags (apply to every subcommand):
 
-`list-plugins` calls `rpc.list_plugins` and prints `<plugin id>\t<port>` per line. Use `--raw --pretty` to dump the JSON shape directly.
+- `--port` (env `RHINO_CLI_PORT`, default `50061`)
+- `--host` (env `RHINO_CLI_HOST`, default `localhost`)
+- `--timeout`, `--connect-timeout`
+- `--pretty`, `--raw`
+- `-q/--quiet`, `-v/--verbose`
 
-`run-script` prints Rhino's `RunScript` result JSON. Use `--fail-on-false` when a false return value should fail automation.
+### Notes on selected subcommands
 
-`new-model` calls the plugin's `rhino.new_model` handler. It creates another unsaved model from Rhino's default template, or from `--template <3dm>` when specified.
+- **`launch`** only starts Rhino. It does not write plugin configuration and does not wait for the RPC endpoint. Pair it with `plugin set-port` (before) and `wait-ready` (after). `--restart` quits Rhino first; `--new-model` opens a modeling window at startup; `--script` is passed through as Rhino's `-runscript` argument.
+- **`plugin set-port`** writes `~/Library/Application Support/rhino-cli/RhinoCliPlugin/config.json` on macOS. The bundled plugin reads it the next time Rhino loads, so call it before `launch` (or before restarting Rhino). Third-party plugins that embed `RhinoCli.Server` configure their own ports independently.
+- **`capabilities`** is the self-describing API for AI agents and humans. It prints registered handlers, parameter shapes, result shapes, examples, side effects, and dedicated CLI wrappers. Use `--format json|markdown|agent` when another tool needs structured context.
+- **`call`** is the universal execution path for any registered handler.
+- **`screenshot`** captures the Rhino app window via `screencapture` (macOS only) and works without the plugin. The terminal process needs Screen Recording permission. Use `--no-shadow` for tighter images, `--no-activate` when Rhino is already focused, and `--window-id` for a known macOS window id.
+- **`capture-viewport`** captures a single viewport in-process via the plugin's `RhinoView.CaptureToBitmap`. Display mode (`--mode`) is applied non-destructively; camera, projection, and zoom mutate the view and are not restored. `--camera`/`--target` can be combined with `--zoom-extents`. Omit `--out` to receive the full JSON-RPC result (including base64 PNG) on stdout.
+- **`inspect-type`** resolves by fully qualified name only — pair it with `search-types` to look up the FQN from a short name. Use `--binding public_static|public_instance|non_public|all` to change visibility and `--include-inherited` to walk base members. XML documentation summaries are attached automatically when an `<AssemblyName>.xml` file (for example `RhinoCommon.xml`) sits next to the loaded DLL.
+- **`decompile-method`** uses ICSharpCode.Decompiler. Use `.ctor` for constructors. When the method is overloaded, pass `--signature` as a comma-separated list of parameter type names (`Point3d` or `Rhino.Geometry.Point3d,bool`). To fetch shape and method body in one call, use `inspect-type --with-body <method>`.
+- **`run-script`** prints Rhino's `RunScript` result JSON. Use `--fail-on-false` when a `false` return value should fail automation. The response includes `objects_added`, `objects_removed`, `command_prompt_changed`, and `history_delta`.
+- **`probe-command`** starts the command via `! _-<Name> _Cancel` and returns the captured first prompt and option labels (in Rhino's current locale). The ASCII short codes in parentheses (for example `(D)`, `(P)`) are locale-stable and can be sent back as `_D`, `_P`. Use with care for commands with immediate side effects or no `-` (no-dialog) variant.
 
-`list-commands` returns Rhino command names known to the running instance (English by default). Use `--pattern` for a case-insensitive substring filter and `--include-unloaded` to also include commands from unloaded plugins. `probe-command <NAME>` starts the command via `! _-<Name> _Cancel` and returns the captured first prompt and option labels (in Rhino's locale) so AI agents can discover argument syntax dynamically before invoking `run-script`. The option short codes in parentheses (e.g. `(D)`, `(P)`) are ASCII-stable across locales and can be passed directly as `_D`, `_P`. Use with care for commands that have immediate side effects or no `-` (no-dialog) variant.
+## Handlers
 
-`inspect-type <FQN>` reflects on a .NET type loaded in the Rhino process and returns its constructors, properties, methods (grouped by overload), events, and fields as structured JSON. Use this before writing `run_python` against an unfamiliar RhinoCommon type — it surfaces exact parameter types and overload shapes that `dir()` cannot expose. Resolution is fully qualified name only (no suffix matching); pair with `search-types` to look up an FQN from a short name. Use `--binding public_static` (or `public_instance`, `non_public`, `all`) to change visibility, and `--include-inherited` to include base members. XML documentation summaries are attached automatically when an `<AssemblyName>.xml` file (e.g. `RhinoCommon.xml`) is found next to the loaded DLL.
+### Built-in handlers (RhinoCli.Server)
 
-`search-types <PATTERN>` finds types and members whose name contains `PATTERN` (case-insensitive) across the loaded assemblies. By default the search is restricted to `Rhino*`, `RhinoCommon`, and `RhinoCli*`; use `--assembly <NAME>` to target a specific assembly, `--scope types` or `--scope members` to narrow the kind, and `--limit N` for the result cap (default 50, `truncated:true` is set when more matches were skipped). Typical workflow: run `search-types AddBox` to find `Rhino.DocObjects.Tables.ObjectTable.AddBox`, then call `inspect-type` against the discovered type to read its overloads.
+Auto-registered in every `HandlerRegistry`:
 
-`decompile-method <TYPE> <METHOD>` returns the C# of a single method's IL, decoded by ICSharpCode.Decompiler. Use this when `inspect-type` is not enough and you want to read what the method actually does (control flow, helper calls, edge cases). Use `.ctor` for constructors. When the method is overloaded, pass `--signature` as a comma-separated list of parameter type names (FullName or short Name both work, e.g. `--signature Point3d` or `--signature "Rhino.Geometry.Point3d,bool"`). Use `inspect-type --with-body <METHOD>` to fetch shapes and method bodies in one CLI call — the resulting JSON merges each decompiled C# into the matching `overloads[*].body` field.
+| Method | Description |
+|--------|-------------|
+| `system.ping` | Liveness check. |
+| `system.version` | Server / plugin version info. |
+| `rpc.capabilities` | Handler metadata catalog. |
+| `rpc.list_methods` | All registered method names. |
+| `rpc.list_plugins` | Plugin instances reachable on this connection. |
 
-`screenshot` captures the Rhino app window itself as a PNG on macOS via `screencapture` — useful for inspecting the whole UI (4 viewports + toolbar + panels) and works without the plugin. macOS Screen Recording permission is required for the terminal process running `rhino-cli`. Use `--no-shadow` for tighter images, `--no-activate` when Rhino is already focused, and `--window-id` for a known macOS window id.
+### Bundled handlers (RhinoCliPlugin)
 
-`capture-viewport` captures a single viewport in-process via the plugin's `RhinoView.CaptureToBitmap` and returns a base64-encoded PNG. Pass `--out <path>` to decode and write the file (path printed on success); omit `--out` to receive the full JSON-RPC result on stdout. Supports `--viewport`, `--mode` (case-insensitive: `shaded` / `rendered` / `ghosted` / `x-ray` / `wireframe` / custom), `--projection perspective|parallel`, `--camera X,Y,Z`, `--target X,Y,Z`, `--zoom-extents` (mutually exclusive with `--camera`/`--target`), and `--transparent` (uses `DisplayPipelineAttributes.FillMode = Transparent`). Display mode is applied non-destructively; camera/projection/zoom mutate the view and are not restored.
+Registered by the bundled plugin at startup:
 
-### Handler set is intentionally small
+| Method | Description |
+|--------|-------------|
+| `rhino_cli.hello` | Smoke test (returns `{hello:"world"}`). |
+| `rhino_cli.echo` | Echoes its parameters unchanged. |
+| `rhino.run_script` | Execute a Rhino command script. The result includes `objects_added` / `objects_removed` / `command_prompt_changed` / `history_delta`. |
+| `rhino.run_python` | Execute inline Python with `scriptcontext.doc` pre-wired. `result_expression` returns a JSON-serialized value alongside captured `stdout`. |
+| `rhino.new_model` | Create a new active document (optionally from a template). |
+| `rhino.command_history` / `rhino.clear_command_history` | Read or clear Rhino's command history via reflection against the Eto `CommandHistoryViewModel` (not feasible from `run_python`). |
+| `rhino.list_commands` / `rhino.probe_command` | Command discovery and dynamic prompt probing. `probe_command` needs a background-thread `RhinoApp.SendKeystrokes("")` cancel. |
+| `rhino.inspect_type` | API discovery via `System.Reflection`. Returns constructors, properties, methods (overload-grouped), events, and fields of a .NET type loaded in the Rhino process. |
+| `rhino.search_types` | Find types or members by case-insensitive substring across loaded assemblies. |
+| `rhino.decompile_method` | Decompile a single method to C# via ICSharpCode.Decompiler. |
+| `rhino.capture_viewport` | Capture a viewport to PNG with structured display-mode / camera / projection control. Returns `png_base64` plus applied state. |
 
-The bundled plugin exposes a minimal handler surface: lifecycle / introspection only. Anything that can be expressed in a few lines of RhinoCommon Python — saving / opening files, adding geometry, listing or deleting objects by ID, capturing viewports, batch operations — goes through `rhino.run_python` with `result_expression` rather than getting a dedicated handler. This keeps the protocol from accumulating `add_box → add_sphere → add_cylinder → ...` style bloat.
+### Why the handler set is intentionally small
 
-Currently registered:
+The bundled plugin exposes a minimal handler surface — lifecycle and introspection only. Anything that can be expressed in a few lines of RhinoCommon Python (saving / opening files, adding geometry, listing or deleting objects by ID, batch operations) goes through `rhino.run_python` with `result_expression` rather than getting a dedicated handler. This keeps the protocol from accumulating `add_box → add_sphere → add_cylinder → …` style bloat.
 
-- `rhino.run_script` — run Rhino command scripts. Result now includes `objects_added` / `objects_removed` / `command_prompt_changed` / `history_delta`.
-- `rhino.run_python` — execute inline Python with `scriptcontext.doc` pre-wired. Pass `result_expression` to receive a JSON-serialized return value alongside captured `stdout`.
-- `rhino.new_model` — create a new active document.
-- `rhino.command_history` / `rhino.clear_command_history` — read or clear Rhino's command history (uses reflection against the Eto CommandHistoryViewModel; not feasible from `run_python`).
-- `rhino.list_commands` / `rhino.probe_command` — command discovery and dynamic prompt probing (probe needs background-thread `RhinoApp.SendKeystrokes("")` cancel).
-- `rhino.inspect_type` — API discovery via `System.Reflection`. Returns the constructors, properties, methods (overload-grouped), events, and fields of a .NET type loaded in the Rhino process so AI agents can verify RhinoCommon signatures before writing `run_python`. FQN-only resolution. XML documentation summaries are attached when an adjacent `.xml` file exists.
-- `rhino.search_types` — Find types or members by substring across loaded assemblies (case-insensitive). Pair with `inspect_type` when only a short name like `AddBox` is known.
-- `rhino.decompile_method` — Decompile a single method into C# via ICSharpCode.Decompiler. Used when an AI needs to read the actual implementation of a Rhino API rather than just its signature.
-- `rhino.capture_viewport` — capture a single viewport to PNG with structured display-mode / camera / projection control. Returns `png_base64` + applied state. DisplayMode is non-destructive (capture overload); camera/projection/zoom mutate the view and are not restored.
-
-The boundary policy and recipe collection (save / open / add box / list / delete in pure `run_python`) live in `CLAUDE.md` and `docs/protocol.md`.
+The boundary policy and the `run_python` recipe collection (save / open / add / list / delete / capture) live in `CLAUDE.md` and the `rhino.run_python` section of `docs/protocol.md`.
 
 ## RhinoCliPlugin
 
-Build the Rhino plugin:
+Build the bundled Rhino plugin:
 
 ```bash
 dotnet build plugin/RhinoCliPlugin/RhinoCliPlugin.csproj
@@ -159,7 +191,7 @@ The build copies the plugin artifacts to:
 ~/Library/Application Support/McNeel/Rhinoceros/8.0/MacPlugins/RhinoCliPlugin
 ```
 
-Launch Rhino 8, then call:
+Smoke-test sequence:
 
 ```bash
 rhino-cli plugin set-port 50061
@@ -179,13 +211,13 @@ rhino-cli screenshot --out /tmp/rhino-cli-plugin.png
 rhino-cli shutdown
 ```
 
-## Docs
+## Documentation
 
-- `docs/design.md` - architecture and scope
-- `docs/protocol.md` - JSON-RPC 2.0 over TCP protocol
-- `docs/plugin-integration.md` - embedding guide for existing plugins
-- `docs/tasks.md` - implementation checklist
+- `docs/design.md` — architecture and scope
+- `docs/protocol.md` — JSON-RPC 2.0 over TCP protocol
+- `docs/plugin-integration.md` — embedding guide for third-party plugins
+- `docs/tasks.md` — implementation checklist
 
-## ライセンス
+## License
 
 MIT
