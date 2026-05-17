@@ -44,7 +44,26 @@ English: [README.md](README.md)
 - .NET 7.0 SDK (サーバライブラリ・プラグインビルド用)
 - Rhino 8 (ホストアプリケーション)
 
-## クイックスタート
+## インストール
+
+CLI は [crates.io](https://crates.io/crates/rhino-cli) に、同梱の Rhino プラグインは [Yak サーバ](https://yak.rhino3d.com) に公開する。両方を入れるには:
+
+```bash
+# CLI
+cargo install rhino-cli
+
+# RhinoCliPlugin (Rhino 8 のコマンドラインから、または Package Manager UI を使う)
+_PackageManager
+# Search for: rhino-cli
+```
+
+Yak CLI で直接インストールする場合:
+
+```bash
+"/Applications/Rhino 8.app/Contents/Resources/bin/yak" install rhino-cli
+```
+
+## ソースからビルド
 
 推奨タスクランナー (cargo-make):
 
@@ -210,6 +229,24 @@ rhino-cli history --tail 20 --port 50061
 rhino-cli screenshot --out /tmp/rhino-cli-plugin.png
 rhino-cli shutdown
 ```
+
+## リリース
+
+2 つのレジストリ、2 つのフロー。
+
+### CLI → crates.io
+
+1. `Cargo.toml` の `version` を上げる。
+2. `cargo make publish-dry-run` (メタデータとパッケージ内容を検証する)。
+3. `cargo publish` (事前に `cargo login` が必要)。
+
+### RhinoCliPlugin → Yak
+
+1. `plugin/RhinoCliPlugin/manifest.yml` の `version` を上げる (`RhinoCliPlugin.csproj` の `AssemblyVersion` / `FileVersion` も合わせる)。
+2. `cargo make yak-build` — Release ビルド → manifest をビルド出力にコピー → `plugin/RhinoCliPlugin/bin/Release/net7.0/` に `*.yak` を生成する。
+3. `cargo make yak-push` — 最新の `.yak` をアップロードする (初回のみ `yak login` が必要)。
+
+Yak バイナリの場所は `YAK_BIN` 環境変数で上書きできる (デフォルト: `/Applications/Rhino 8.app/Contents/Resources/bin/yak`)。
 
 ## ドキュメント
 

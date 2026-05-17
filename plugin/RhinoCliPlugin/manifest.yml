@@ -1,0 +1,16 @@
+---
+name: rhino-cli
+version: 0.1.0
+authors:
+  - 4kk11
+description: |
+  Core Rhino automation plugin for rhino-cli.
+  Exposes a JSON-RPC 2.0 over TCP interface so the rhino-cli command-line client
+  (and AI agents) can drive Rhino: run scripts and Python, inspect .NET types,
+  decompile methods, probe commands, capture viewports, and more.
+url: https://github.com/4kk11/rhino-cli
+keywords:
+  - automation
+  - cli
+  - rpc
+  - testing

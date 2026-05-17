@@ -3,6 +3,24 @@ name = "rhino-cli"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
+authors = ["4kk11"]
+description = "JSON-RPC 2.0 CLI client for Rhino plugins. Drives the bundled RhinoCliPlugin (or any plugin embedding RhinoCli.Server) for automation, end-to-end testing, and AI agent workflows."
+repository = "https://github.com/4kk11/rhino-cli"
+homepage = "https://github.com/4kk11/rhino-cli"
+readme = "README.md"
+keywords = ["rhino", "rhino3d", "rhinoceros", "rpc", "automation"]
+categories = ["command-line-utilities"]
+exclude = [
+    "/docs/",
+    "/server/",
+    "/plugin/",
+    "/.06_Projects/",
+    "/.github/",
+    "/Makefile.toml",
+    "/rhino-cli.sln",
+    "/CLAUDE.md",
+    "/README.ja.md",
+]
 
 [dependencies]
 clap = { version = "4.5", features = ["derive", "env"] }

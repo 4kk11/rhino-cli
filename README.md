@@ -44,7 +44,26 @@ Each Rhino plugin embeds `RhinoCli.Server` as a NuGet dependency and registers i
 - .NET 7.0 SDK (to build the server library and plugin)
 - Rhino 8 (host application)
 
-## Quick Start
+## Install
+
+The CLI is published to [crates.io](https://crates.io/crates/rhino-cli) and the bundled Rhino plugin to the [Yak server](https://yak.rhino3d.com). Install both:
+
+```bash
+# CLI
+cargo install rhino-cli
+
+# RhinoCliPlugin (run from Rhino 8 command line, or use Rhino's Package Manager UI)
+_PackageManager
+# Search for: rhino-cli
+```
+
+Equivalent Yak CLI invocation:
+
+```bash
+"/Applications/Rhino 8.app/Contents/Resources/bin/yak" install rhino-cli
+```
+
+## Build from Source
 
 Recommended task runner (cargo-make):
 
@@ -210,6 +229,24 @@ rhino-cli history --tail 20 --port 50061
 rhino-cli screenshot --out /tmp/rhino-cli-plugin.png
 rhino-cli shutdown
 ```
+
+## Release
+
+Two registries, two flows.
+
+### CLI → crates.io
+
+1. Bump `version` in `Cargo.toml`.
+2. `cargo make publish-dry-run` (verifies metadata and package contents).
+3. `cargo publish` (requires `cargo login`).
+
+### RhinoCliPlugin → Yak
+
+1. Bump `version` in `plugin/RhinoCliPlugin/manifest.yml` (and `AssemblyVersion` / `FileVersion` in `RhinoCliPlugin.csproj` to match).
+2. `cargo make yak-build` — runs a Release `dotnet build`, copies the manifest into the output dir, and produces `*.yak` under `plugin/RhinoCliPlugin/bin/Release/net7.0/`.
+3. `cargo make yak-push` — uploads the most recent `.yak` package (requires `yak login` once).
+
+`YAK_BIN` env var overrides the Yak binary location (default `/Applications/Rhino 8.app/Contents/Resources/bin/yak`).
 
 ## Documentation
 

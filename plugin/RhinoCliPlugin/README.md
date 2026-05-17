@@ -15,6 +15,17 @@ The same artifact set is copied to Rhino's macOS plugin directory:
 ~/Library/Application Support/McNeel/Rhinoceros/8.0/MacPlugins/RhinoCliPlugin
 ```
 
+## Yak Package
+
+Publishing this plugin to the [Yak server](https://yak.rhino3d.com) is automated through `cargo make`:
+
+```bash
+cargo make yak-build   # Release build + manifest copy + `yak build --platform mac`
+cargo make yak-push    # uploads the most recent .yak (requires `yak login` once)
+```
+
+`manifest.yml` in this directory drives the package metadata (`name`, `version`, `authors`, `description`, `url`, `keywords`). Bump `version` here together with `AssemblyVersion` / `FileVersion` in `RhinoCliPlugin.csproj` before publishing.
+
 ## Manual Check
 
 1. Launch Rhino and wait for the plugin:
