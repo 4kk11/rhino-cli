@@ -1,7 +1,10 @@
 using System.Collections.Concurrent;
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using ICSharpCode.Decompiler;
 using ICSharpCode.Decompiler.CSharp;
+using ICSharpCode.Decompiler.Metadata;
 using ICSharpCode.Decompiler.TypeSystem;
 
 namespace RhinoCli.Server.Reflection;
@@ -17,7 +20,7 @@ public sealed class DecompileResult
 
 public static class MethodDecompiler
 {
-    private static readonly ConcurrentDictionary<string, CSharpDecompiler?> Cache = new();
+    private static readonly ConcurrentDictionary<string, CSharpDecompiler> Cache = new();
 
     public static DecompileResult Decompile(string typeFullName, string methodName, string? signatureFilter)
     {
@@ -58,11 +61,27 @@ public static class MethodDecompiler
                 new { reason = "assembly_path_unknown", type = typeFullName });
         }
 
-        var decompiler = Cache.GetOrAdd(assemblyPath, CreateDecompiler)
-            ?? throw new RpcException(
-                -32603,
-                "Internal error",
-                new { reason = "decompiler_init_failed", assembly = assemblyPath });
+        if (!Cache.TryGetValue(assemblyPath, out var decompiler))
+        {
+            try
+            {
+                decompiler = CreateDecompiler(assemblyPath);
+                Cache[assemblyPath] = decompiler;
+            }
+            catch (Exception ex)
+            {
+                throw new RpcException(
+                    -32603,
+                    "Internal error",
+                    new
+                    {
+                        reason = "decompiler_init_failed",
+                        assembly = assemblyPath,
+                        message = ex.Message,
+                        exception = ex.GetType().FullName,
+                    });
+            }
+        }
 
         var typeDef = decompiler.TypeSystem
             .FindType(new FullTypeName(typeFullName))
@@ -222,16 +241,23 @@ public static class MethodDecompiler
         }
     }
 
-    private static CSharpDecompiler? CreateDecompiler(string assemblyPath)
+    private static CSharpDecompiler CreateDecompiler(string assemblyPath)
     {
-        try
+        var settings = new DecompilerSettings
         {
-            return new CSharpDecompiler(assemblyPath, new DecompilerSettings());
-        }
-        catch
-        {
-            return null;
-        }
+            LoadInMemory = true,
+            ThrowOnAssemblyResolveErrors = false,
+        };
+
+        var stream = new FileStream(assemblyPath, FileMode.Open, FileAccess.Read);
+        var pe = new PEFile(
+            assemblyPath,
+            stream,
+            PEStreamOptions.PrefetchEntireImage,
+            MetadataReaderOptions.Default);
+
+        var resolver = new AppDomainAssemblyResolver(assemblyPath, pe);
+        return new CSharpDecompiler(pe, resolver, settings);
     }
 
     private static string[] SplitSignature(string sig)
