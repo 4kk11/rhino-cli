@@ -189,7 +189,7 @@ enum Commands {
         /// Camera target as "X,Y,Z".
         #[arg(long, allow_hyphen_values = true)]
         target: Option<String>,
-        /// Zoom to extents before capture. Mutually exclusive with --camera/--target.
+        /// Zoom to extents before capture. Applied after --camera/--target when both are given.
         #[arg(long)]
         zoom_extents: bool,
         /// Request a transparent background.

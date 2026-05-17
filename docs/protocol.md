@@ -390,7 +390,7 @@ viewport state そのものを示すので、撮影内容と等価。issue 方�
 | `projection` | — | `"perspective"` または `"parallel"` |
 | `camera` | — | `[x, y, z]` の数値配列。`SetCameraLocation(p, false)` |
 | `target` | — | `[x, y, z]`。`SetCameraTarget(p, false)` |
-| `zoom_extents` | — | `true` で `ZoomExtents()`。`camera` / `target` とは**排他**（-32602 エラー） |
+| `zoom_extents` | — | `true` で `ZoomExtents()`。`camera` / `target` と併用可能。適用順は `camera → target → zoom_extents` で、`ZoomExtents` はカメラ方向を保ったまま距離だけ調整（Dolly）するため、指定した角度のまま scene 全体をフレームに収められる |
 | `transparent_background` | — | `true` で `DisplayPipelineAttributes.FillMode = Transparent` を base attributes（mode 指定があればそこから、なければ現 DisplayMode から構築）に適用してから capture |
 
 **結果スキーマ**:
@@ -418,7 +418,7 @@ viewport state そのものを示すので、撮影内容と等価。issue 方�
 | `mode` | EnglishName / LocalName いずれにも一致せず。`data.available` に候補リスト |
 | `projection` | `"perspective"` / `"parallel"` 以外 |
 | `camera` / `target` | 3 要素の数値配列でない |
-| `camera\|target\|zoom_extents` | 相互排他違反（camera/target 指定 + zoom_extents=true 同時指定） |
+| `camera` / `target` | 3 要素の数値配列でない |
 
 **`rhino-cli screenshot` との使い分け**:
 

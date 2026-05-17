@@ -50,16 +50,7 @@ public sealed class CaptureViewportHandler : IHandler
         bool zoomExtents = @params?["zoom_extents"]?.GetValue<bool>() ?? false;
         bool transparentBg = @params?["transparent_background"]?.GetValue<bool>() ?? false;
 
-        // 3. mutual exclusion
-        if ((camera != null || target != null) && zoomExtents)
-            throw new RpcException(-32602, "Invalid params",
-                new
-                {
-                    field = "camera|target|zoom_extents",
-                    expected = "either explicit camera/target OR zoom_extents=true, not both"
-                });
-
-        // 4. resolve doc & view
+        // 3. resolve doc & view
         var doc = RhinoDoc.ActiveDoc
             ?? throw new RpcException(-32000, "No active Rhino document", new { });
 
@@ -119,14 +110,66 @@ public sealed class CaptureViewportHandler : IHandler
             else
                 vp.ChangeToPerspectiveProjection(true, 50.0);
         }
-        if (camera != null)
-            vp.SetCameraLocation(new Point3d(camera[0], camera[1], camera[2]), false);
-        if (target != null)
-            vp.SetCameraTarget(new Point3d(target[0], target[1], target[2]), false);
+        // Use SetCameraLocations (CRhinoViewport_SetCameraLocations) rather than
+        // separate SetCameraLocation/SetCameraTarget calls.  The compound API commits
+        // both camera and target atomically and is reflected by CaptureToBitmap.
+        if (camera != null || target != null)
+        {
+            var camPt = camera != null
+                ? new Point3d(camera[0], camera[1], camera[2])
+                : vp.CameraLocation;
+            var tgtPt = target != null
+                ? new Point3d(target[0], target[1], target[2])
+                : vp.CameraTarget;
+            vp.SetCameraLocations(tgtPt, camPt);
+        }
         if (zoomExtents)
-            vp.ZoomExtents();
+        {
+            if (camera != null || target != null)
+            {
+                // ZoomExtents/ZoomBoundingBox both dolly-reset the camera position.
+                // Preserve the requested view direction by computing the standoff distance
+                // needed to fit the scene's bounding sphere, then re-apply via SetCameraLocations.
+                var allBbox = doc.Objects
+                    .Where(o => o?.Geometry != null)
+                    .Select(o => o.Geometry.GetBoundingBox(true))
+                    .Where(b => b.IsValid)
+                    .Aggregate(BoundingBox.Empty, (acc, b) => { acc.Union(b); return acc; });
 
-        view.Redraw();
+                if (allBbox.IsValid && vp.IsPerspectiveProjection)
+                {
+                    var center = allBbox.Center;
+                    double radius = allBbox.Diagonal.Length / 2.0;
+                    var camPt = camera != null
+                        ? new Point3d(camera[0], camera[1], camera[2])
+                        : vp.CameraLocation;
+                    var tgtPt = target != null
+                        ? new Point3d(target[0], target[1], target[2])
+                        : vp.CameraTarget;
+                    var viewDir = tgtPt - camPt;
+                    viewDir.Unitize();
+
+                    // 35mm sensor: 24mm tall → vertical half-FOV = atan(12 / lensLength)
+                    double lensLength = vp.Camera35mmLensLength;
+                    double halfVFov = Math.Atan(12.0 / lensLength);
+                    double halfHFov = Math.Atan(Math.Tan(halfVFov) * vp.FrustumAspect);
+                    double minHalfFov = Math.Min(halfVFov, halfHFov);
+                    double distance = radius / Math.Tan(minHalfFov) * 1.1; // 10% padding
+
+                    vp.SetCameraLocations(center, center - viewDir * distance);
+                }
+                else
+                {
+                    vp.ZoomExtents();
+                }
+            }
+            else
+            {
+                vp.ZoomExtents();
+            }
+        }
+
+        doc.Views.Redraw();
 
         // 7. capture
         var size = new Size(width, height);

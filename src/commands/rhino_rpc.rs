@@ -225,12 +225,6 @@ fn parse_xyz(label: &str, raw: &str) -> Result<[f64; 3]> {
 }
 
 pub fn capture_viewport(ctx: &CommandContext, args: CaptureViewportArgs) -> Result<()> {
-    if args.zoom_extents && (args.camera.is_some() || args.target.is_some()) {
-        return Err(CliError::InvalidInput(
-            "--zoom-extents is mutually exclusive with --camera/--target".to_string(),
-        ));
-    }
-
     let mut params = json!({
         "width": args.width,
         "height": args.height,
