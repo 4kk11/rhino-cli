@@ -184,10 +184,10 @@ enum Commands {
         #[arg(long)]
         projection: Option<String>,
         /// Camera location as "X,Y,Z".
-        #[arg(long)]
+        #[arg(long, allow_hyphen_values = true)]
         camera: Option<String>,
         /// Camera target as "X,Y,Z".
-        #[arg(long)]
+        #[arg(long, allow_hyphen_values = true)]
         target: Option<String>,
         /// Zoom to extents before capture. Mutually exclusive with --camera/--target.
         #[arg(long)]
