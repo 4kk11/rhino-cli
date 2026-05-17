@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 作成日 | 2026-05-17 |
-| ステータス | Phase C 完了 (Phase D 待ち) |
+| ステータス | Phase D + E 完了 (Phase F 待ち) |
 | 関連 | `docs/design.md`, `docs/protocol.md`, `docs/tasks.md` |
 
 ---

@@ -10,8 +10,8 @@ use rhino_cli::commands::capabilities::{CapabilitiesArgs, CapabilitiesFormat};
 use rhino_cli::commands::doctor::DoctorArgs;
 use rhino_cli::commands::rhino::{LaunchArgs, ScreenshotArgs, ShutdownArgs};
 use rhino_cli::commands::rhino_rpc::{
-    HistoryArgs, InspectTypeArgs, ListCommandsArgs, NewModelArgs, ProbeCommandArgs, RunScriptArgs,
-    SearchTypesArgs,
+    DecompileMethodArgs, HistoryArgs, InspectTypeArgs, InspectTypeWithBodyArgs, ListCommandsArgs,
+    NewModelArgs, ProbeCommandArgs, RunScriptArgs, SearchTypesArgs,
 };
 use rhino_cli::commands::CommandContext;
 use rhino_cli::error::{CliError, Result};
@@ -138,6 +138,9 @@ enum Commands {
         /// Include inherited members instead of declared-only.
         #[arg(long)]
         include_inherited: bool,
+        /// Also decompile and merge the body of the named method into matching overloads. Repeatable.
+        #[arg(long = "with-body")]
+        with_body: Vec<String>,
     },
     /// Search loaded assemblies for types or members whose name contains the given substring.
     SearchTypes {
@@ -152,6 +155,16 @@ enum Commands {
         /// Maximum number of matches (default 50).
         #[arg(long)]
         limit: Option<u32>,
+    },
+    /// Decompile a single .NET method's IL into C# via ICSharpCode.Decompiler.
+    DecompileMethod {
+        /// Fully qualified type name (e.g. Rhino.Geometry.Box).
+        type_name: String,
+        /// Method name. Use `.ctor` for constructors.
+        method: String,
+        /// Comma-separated parameter type names to pick a specific overload (FullName or short Name).
+        #[arg(long)]
+        signature: Option<String>,
     },
     /// Launch Rhino. Use `rhino-cli wait-ready --port <PORT>` afterwards to wait for the plugin.
     Launch {
@@ -296,14 +309,22 @@ fn run(cli: Cli) -> Result<()> {
             name,
             binding,
             include_inherited,
-        } => rhino_cli::commands::rhino_rpc::inspect_type(
-            &ctx,
-            InspectTypeArgs {
+            with_body,
+        } => {
+            let inspect = InspectTypeArgs {
                 name,
                 binding,
                 include_inherited,
-            },
-        ),
+            };
+            if with_body.is_empty() {
+                rhino_cli::commands::rhino_rpc::inspect_type(&ctx, inspect)
+            } else {
+                rhino_cli::commands::rhino_rpc::inspect_type_with_body(
+                    &ctx,
+                    InspectTypeWithBodyArgs { inspect, with_body },
+                )
+            }
+        }
         Commands::SearchTypes {
             pattern,
             scope,
@@ -316,6 +337,18 @@ fn run(cli: Cli) -> Result<()> {
                 scope,
                 assembly,
                 limit,
+            },
+        ),
+        Commands::DecompileMethod {
+            type_name,
+            method,
+            signature,
+        } => rhino_cli::commands::rhino_rpc::decompile_method(
+            &ctx,
+            DecompileMethodArgs {
+                type_name,
+                method,
+                signature,
             },
         ),
         Commands::Launch {

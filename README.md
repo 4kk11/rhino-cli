@@ -92,6 +92,7 @@ rhino-cli list-commands --pattern Box --port 50061
 rhino-cli probe-command Box --port 50061
 rhino-cli inspect-type Rhino.Geometry.Box --port 50061
 rhino-cli search-types AddBox --port 50061
+rhino-cli decompile-method Rhino.Geometry.Box ClosestPoint --signature Point3d --port 50061
 rhino-cli run-script "_Zoom _Extents" --port 50061
 rhino-cli history --tail 50 --port 50061
 rhino-cli call rhino.run_python '{"source":"import scriptcontext as sc; print(sc.doc.Objects.Count)"}' --port 50061
@@ -120,6 +121,8 @@ rhino-cli shutdown
 
 `search-types <PATTERN>` finds types and members whose name contains `PATTERN` (case-insensitive) across the loaded assemblies. By default the search is restricted to `Rhino*`, `RhinoCommon`, and `RhinoCli*`; use `--assembly <NAME>` to target a specific assembly, `--scope types` or `--scope members` to narrow the kind, and `--limit N` for the result cap (default 50, `truncated:true` is set when more matches were skipped). Typical workflow: run `search-types AddBox` to find `Rhino.DocObjects.Tables.ObjectTable.AddBox`, then call `inspect-type` against the discovered type to read its overloads.
 
+`decompile-method <TYPE> <METHOD>` returns the C# of a single method's IL, decoded by ICSharpCode.Decompiler. Use this when `inspect-type` is not enough and you want to read what the method actually does (control flow, helper calls, edge cases). Use `.ctor` for constructors. When the method is overloaded, pass `--signature` as a comma-separated list of parameter type names (FullName or short Name both work, e.g. `--signature Point3d` or `--signature "Rhino.Geometry.Point3d,bool"`). Use `inspect-type --with-body <METHOD>` to fetch shapes and method bodies in one CLI call — the resulting JSON merges each decompiled C# into the matching `overloads[*].body` field.
+
 `screenshot` captures the Rhino app window itself as a PNG on macOS. It is useful for autonomous visual debugging after `run-script`; use `--no-shadow` for tighter images, `--no-activate` when you have already focused Rhino, and `--window-id` for a known macOS window id. macOS Screen Recording permission is required for the terminal process running `rhino-cli`. For pixel-only viewport rendering call `RhinoView.CaptureToBitmap` via `rhino.run_python` (recipe in `docs/protocol.md`).
 
 ### Handler set is intentionally small
@@ -135,6 +138,7 @@ Currently registered:
 - `rhino.list_commands` / `rhino.probe_command` — command discovery and dynamic prompt probing (probe needs background-thread `RhinoApp.SendKeystrokes("")` cancel).
 - `rhino.inspect_type` — API discovery via `System.Reflection`. Returns the constructors, properties, methods (overload-grouped), events, and fields of a .NET type loaded in the Rhino process so AI agents can verify RhinoCommon signatures before writing `run_python`. FQN-only resolution. XML documentation summaries are attached when an adjacent `.xml` file exists.
 - `rhino.search_types` — Find types or members by substring across loaded assemblies (case-insensitive). Pair with `inspect_type` when only a short name like `AddBox` is known.
+- `rhino.decompile_method` — Decompile a single method into C# via ICSharpCode.Decompiler. Used when an AI needs to read the actual implementation of a Rhino API rather than just its signature.
 
 The boundary policy and recipe collection (save / open / add box / list / delete / capture-viewport in pure `run_python`) live in `CLAUDE.md` and `docs/protocol.md`.
 
@@ -165,6 +169,7 @@ rhino-cli list-commands --pattern Box --port 50061
 rhino-cli probe-command Box --port 50061
 rhino-cli inspect-type Rhino.Geometry.Box --port 50061
 rhino-cli search-types AddBox --port 50061
+rhino-cli decompile-method Rhino.Geometry.Box ClosestPoint --signature Point3d --port 50061
 rhino-cli run-script "_Zoom _Extents" --port 50061
 rhino-cli history --tail 20 --port 50061
 rhino-cli screenshot --out /tmp/rhino-cli-plugin.png

@@ -31,6 +31,7 @@ public sealed class RhinoCliPlugin : PlugIn
             registry.Register("rhino.probe_command", new ProbeCommandHandler());
             registry.Register("rhino.inspect_type", new InspectTypeHandler());
             registry.Register("rhino.search_types", new SearchTypesHandler());
+            registry.Register("rhino.decompile_method", new DecompileMethodHandler());
 
             _server = new TcpServer(port, registry, "RhinoCliPlugin", InvokeOnUiThread);
             _server.OnError += message => RhinoApp.WriteLine($"RhinoCliPlugin: {message}");

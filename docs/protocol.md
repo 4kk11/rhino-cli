@@ -183,6 +183,7 @@ null
 | `rhino.probe_command` | `{ "name": "Box" }` | コマンドを `! _-{Name} _Cancel × 5` で起動・即時中断し（300ms 経過時には background thread から `RhinoApp.SendKeystrokes("")` で Esc も送出）、最初の Get プロンプトを `RhinoApp.CommandPrompt` から、Write/WriteLine 出力を `RhinoApp.CapturedCommandWindowStrings` から捕獲して返す。option short code は `(D)` `(P)` 等 ASCII 安定で `_D` `_P` としてそのまま渡せる |
 | `rhino.inspect_type` | `{ "name": "Rhino.Geometry.Box", "binding"?: "public" \| "public_instance" \| "public_static" \| "non_public" \| "all", "include_inherited"?: bool }` | `System.Reflection` でロード済みの .NET 型を内省し、constructors / properties / methods（オーバーロードはグルーピング）/ events / fields を構造化 JSON で返す。型解決は FQN のみ（末尾一致なし）。`run_python` で RhinoCommon を呼ぶ前の API 発見用。詳細は §3.2.1 |
 | `rhino.search_types` | `{ "pattern": "AddBox", "scope"?: "all" \| "types" \| "members", "assembly"?: string, "limit"?: int }` | ロード済みアセンブリから型 / メンバ名の部分一致 (case-insensitive) を検索する。`inspect_type` 前段の FQN 解決用。デフォルトは `Rhino*` / `RhinoCommon` / `RhinoCli*` 配下に絞り込む。詳細は §3.2.2 |
+| `rhino.decompile_method` | `{ "type": "Rhino.Geometry.Box", "method": "ClosestPoint", "signature"?: "Point3d" }` | ICSharpCode.Decompiler でメソッド本体の IL を C# 復元して返す。`inspect_type` がシグネチャしか返さないのに対し、これは実装まで覗ける。overload は `signature` (カンマ区切りの型名) で絞り込む。詳細は §3.2.3 |
 
 #### 3.2.1 `rhino.inspect_type` の詳細
 
@@ -317,6 +318,52 @@ member kinds の `full_name` は **DeclaringType の FQN**、`member` は
 1. `search_types AddBox` → `ObjectTable.AddBox` (method) と `Box` (type) などが返る
 2. AI が `inspect_type Rhino.DocObjects.Tables.ObjectTable` を呼んで overload を確認
 3. シグネチャに合わせて `run_python` でコードを書く
+
+#### 3.2.3 `rhino.decompile_method` の詳細
+
+`inspect_type` がメソッドの **インターフェース** を返すのに対し、本ハンドラは
+**実装** (IL を C# 復元) を返す。AI がメソッドの内部処理を読みたい場面
+（edge case 推測、helper の連鎖の確認、デバッグ）に使う。
+
+**パラメータ**:
+
+| 名前 | 必須 | 説明 |
+|------|------|------|
+| `type` | ✓ | FQN（例: `Rhino.Geometry.Box`） |
+| `method` | ✓ | メソッド名。コンストラクタは `.ctor` を指定 |
+| `signature` | — | overload を絞り込む。カンマ区切りの型名。FullName (`Rhino.Geometry.Point3d`) でも短縮形 (`Point3d`) でも可。`(Point3d, bool)` のような括弧表記も受理 |
+
+**結果スキーマ**:
+
+```jsonc
+{
+  "type": "Rhino.Geometry.Box",
+  "method": "ClosestPoint",
+  "signature": "(Rhino.Geometry.Point3d)",
+  "csharp": "public Point3d ClosestPoint(Point3d testPoint)\n{ ... }",
+  "summary": "Finds the closest point on or in the Box..."
+}
+```
+
+**エラー** (-32602 / `data.reason`):
+
+| reason | 状況 | hint |
+|--------|------|------|
+| `type_not_found` | FQN が解決できない | `search_types` で FQN を引け |
+| `type_not_in_assembly` | reflection では見つかったが decompiler の TypeSystem では見つからない (forwarder 等) | — |
+| `method_not_found` | 名前一致のメソッドなし | 名前のスペルを確認 |
+| `ambiguous_overload` | 複数 overload あり `signature` 未指定 | data.available に候補シグネチャ列挙 |
+| `no_overload_matches` | `signature` 指定したが一致なし | 候補シグネチャを `inspect_type` で確認 |
+
+Decompiler instance は assembly path 単位でキャッシュされる（初回ロードに
+RhinoCommon サイズで数百 MB を使うため）。プロセス停止までで GC されない
+点に注意。
+
+**Rust CLI の `--with-body` オプション**: `inspect-type --with-body
+<method-name>` を渡すと、CLI 側で `inspect_type` の結果を取得した後、
+指定メソッドの全 overload について自動で `decompile_method` を呼び、
+`methods[*].overloads[*].body` フィールドに C# を merge する。サーバ側
+ハンドラは分離維持。
 
 #### `rhino.run_python` の代表レシピ
 

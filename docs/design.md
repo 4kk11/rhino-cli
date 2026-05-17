@@ -398,7 +398,33 @@ prefix。広げたい場合は `--assembly <NAME>` で完全一致指定。出�
 を発見 → `inspect-type Rhino.DocObjects.Tables.ObjectTable` で overload を確認 →
 `run-python` で実装。
 
-#### 4.2.17 `screenshot`
+#### 4.2.17 `decompile-method`
+
+```
+rhino-cli decompile-method <TYPE_FQN> <METHOD> [--signature <SIG>]
+```
+
+`rhino.decompile_method` を呼び、ICSharpCode.Decompiler でメソッド本体の
+IL を C# 復元して返す。`inspect-type` がシグネチャ（インターフェース）
+だけを返すのに対し、これは **実装** を返す。AI がメソッドの内部処理を
+読みたい場面（edge case 推測、複雑な API のデバッグ）に使う。
+
+コンストラクタを decompile するときは `METHOD` に `.ctor` を指定。
+オーバーロードがあるときは `--signature` でカンマ区切りの型名で絞り込む。
+型名は FullName (`Rhino.Geometry.Point3d`) でも 短縮形 (`Point3d`) でも
+受理する。曖昧な指定は `-32602 / ambiguous_overload` で候補シグネチャの
+配列を返す。
+
+Decompiler は assembly path 単位でキャッシュされ、初回呼び出し時のみ
+RhinoCommon 全体の型システム構築のため数百 MB を確保する。プロセス停止
+までキャッシュは維持される。
+
+`inspect-type --with-body <METHOD>` は CLI 側のオプション合成で、
+`inspect_type` の結果に対し指定メソッドの全 overload について
+`decompile_method` を呼び、`methods[*].overloads[*].body` に C# を merge
+する。ハンドラ自体は分離維持。
+
+#### 4.2.18 `screenshot`
 
 ```
 rhino-cli screenshot [--app "Rhino 8"] [--out <PNG>] [--window-id <ID>] [--no-activate] [--no-shadow]

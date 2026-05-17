@@ -198,3 +198,19 @@ cached for the lifetime of the host process.
 - Member IDs follow the C# documentation comment spec
   (T:/M:/P:/F:/E:), including `#ctor` for constructors and
   `\`\`N` arity markers for generic methods.
+
+### Method body decompilation (used by `rhino.decompile_method`)
+
+`DecompileMethodHandler` depends on the
+[`ICSharpCode.Decompiler`](https://www.nuget.org/packages/ICSharpCode.Decompiler/)
+NuGet package (added in `RhinoCli.Server.csproj`). One
+`CSharpDecompiler` instance per assembly path is created lazily and
+cached for the lifetime of the host process — first-time decompilation
+of a large assembly like `RhinoCommon` allocates a few hundred MB to
+build its type system. This is acceptable because plugin processes are
+long-lived and the cost is paid only when a decompile request actually
+fires.
+
+Plugins that bundle their own DLLs into a different path do not need
+any extra wiring; the handler resolves the assembly path from the
+reflection `Type.Assembly.Location` of the requested type.

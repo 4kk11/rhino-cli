@@ -51,6 +51,19 @@ pub struct SearchTypesArgs {
     pub limit: Option<u32>,
 }
 
+#[derive(Clone, Debug)]
+pub struct DecompileMethodArgs {
+    pub type_name: String,
+    pub method: String,
+    pub signature: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct InspectTypeWithBodyArgs {
+    pub inspect: InspectTypeArgs,
+    pub with_body: Vec<String>,
+}
+
 pub fn run_script(ctx: &CommandContext, args: RunScriptArgs) -> Result<()> {
     let mut params = json!({
         "script": args.script,
@@ -161,5 +174,83 @@ pub fn search_types(ctx: &CommandContext, args: SearchTypesArgs) -> Result<()> {
     }
     let result = ctx.client().call("rhino.search_types", params)?;
     print_json(&result, ctx.pretty)?;
+    Ok(())
+}
+
+pub fn decompile_method(ctx: &CommandContext, args: DecompileMethodArgs) -> Result<()> {
+    let mut params = json!({
+        "type": args.type_name,
+        "method": args.method,
+    });
+    if let Some(signature) = args.signature {
+        params["signature"] = json!(signature);
+    }
+    let result = ctx.client().call("rhino.decompile_method", params)?;
+    print_json(&result, ctx.pretty)?;
+    Ok(())
+}
+
+pub fn inspect_type_with_body(ctx: &CommandContext, args: InspectTypeWithBodyArgs) -> Result<()> {
+    let mut inspect_params = json!({
+        "name": args.inspect.name,
+        "include_inherited": args.inspect.include_inherited,
+    });
+    if let Some(binding) = args.inspect.binding {
+        inspect_params["binding"] = json!(binding);
+    }
+    let client = ctx.client();
+    let mut inspect_result = client.call("rhino.inspect_type", inspect_params)?;
+
+    if let Some(methods) = inspect_result
+        .get_mut("methods")
+        .and_then(Value::as_array_mut)
+    {
+        for target_name in &args.with_body {
+            // Collect overload count for this method group.
+            let group_idx = methods
+                .iter()
+                .position(|m| m.get("name").and_then(Value::as_str) == Some(target_name.as_str()));
+            let Some(idx) = group_idx else { continue };
+            let overload_count = methods[idx]
+                .get("overloads")
+                .and_then(Value::as_array)
+                .map(|a| a.len())
+                .unwrap_or(0);
+
+            for ov in 0..overload_count {
+                // Build signature filter from overload params types.
+                let sig = methods[idx]["overloads"][ov]
+                    .get("params")
+                    .and_then(Value::as_array)
+                    .map(|ps| {
+                        ps.iter()
+                            .filter_map(|p| p.get("type").and_then(Value::as_str))
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    })
+                    .unwrap_or_default();
+
+                let mut params = json!({
+                    "type": args.inspect.name,
+                    "method": target_name,
+                });
+                if !sig.is_empty() {
+                    params["signature"] = json!(sig);
+                }
+                match client.call("rhino.decompile_method", params) {
+                    Ok(body) => {
+                        if let Some(csharp) = body.get("csharp").and_then(Value::as_str) {
+                            methods[idx]["overloads"][ov]["body"] = json!(csharp);
+                        }
+                    }
+                    Err(err) => {
+                        methods[idx]["overloads"][ov]["body_error"] = json!(err.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    print_json(&inspect_result, ctx.pretty)?;
     Ok(())
 }
