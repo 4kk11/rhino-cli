@@ -32,7 +32,7 @@ cargo make yak-push    # uploads the most recent .yak (requires `yak login` once
 
 ```bash
 rhino-cli plugin set-port 50061
-rhino-cli launch --new-model
+rhino-cli launch
 rhino-cli wait-ready --port 50061 --timeout 120
 ```
 

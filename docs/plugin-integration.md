@@ -150,7 +150,7 @@ public sealed class MyPlugin : PlugIn
 
 ```bash
 rhino-cli doctor --port 50063
-rhino-cli launch --new-model
+rhino-cli launch
 rhino-cli wait-ready --port 50063 --timeout 120
 rhino-cli ping --port 50063 --verbose
 rhino-cli capabilities --port 50063
@@ -172,7 +172,7 @@ rhino-cli shutdown
 - For long-running workflows, return a job id and expose a separate status method.
 - Add `HandlerMetadataAttribute` to custom handler classes so `rhino-cli capabilities` can explain params, examples, and side effects to AI agents.
 - `launch` and `shutdown` currently automate Rhino on macOS with `open` and AppleScript.
-- `launch --new-model` opens a modeling window at startup via Rhino's launch-time `-runscript` path. If Rhino is already running, use `--restart` to apply it.
+- `launch` by default opens a new modeling window at startup via Rhino's `-runscript _NoEcho` so `Rhino.RhinoDoc.ActiveDoc` is set immediately. Pass `--no-new-model` only if you want Rhino's start window (recent/template picker) — note `ActiveDoc` will stay `None` and plugin panel/python operations will silently fail until you dismiss it. `wait-ready` and `doctor` warn whenever `ActiveDoc` is `None` after the plugin becomes reachable. If Rhino is already running, use `--restart` to re-apply launch-time flags.
 - `screenshot` captures the Rhino window on macOS and does not require any plugin RPC handler. The terminal running `rhino-cli` needs macOS Screen Recording permission.
 - `new-model`, `run-script`, `history`, `list-commands`, and `probe-command` require the plugin to register `rhino.new_model`, `rhino.run_script`, `rhino.command_history`, `rhino.clear_command_history`, `rhino.list_commands`, and `rhino.probe_command`. `plugin/RhinoCliPlugin` provides the core reference handlers.
 

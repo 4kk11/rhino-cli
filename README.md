@@ -98,7 +98,7 @@ A typical session against the bundled plugin:
 
 ```bash
 rhino-cli plugin set-port 50061
-rhino-cli launch --new-model
+rhino-cli launch
 rhino-cli wait-ready --port 50061 --timeout 120
 rhino-cli doctor --port 50061
 rhino-cli capabilities --format agent --port 50061
@@ -109,7 +109,7 @@ rhino-cli capture-viewport --width 1280 --height 720 --out /tmp/viewport.png --p
 rhino-cli shutdown
 ```
 
-The responsibilities are intentionally split: `launch` only starts the Rhino process, `plugin set-port` configures the bundled plugin's listening port, and `wait-ready` blocks until the RPC endpoint answers `system.ping`. Combine them rather than expecting any single command to do all three.
+The responsibilities are intentionally split: `launch` only starts the Rhino process, `plugin set-port` configures the bundled plugin's listening port, and `wait-ready` blocks until the RPC endpoint answers `system.ping`. Combine them rather than expecting any single command to do all three. By default `launch` opens a new modeling window at startup (via `-runscript _NoEcho`) so `RhinoDoc.ActiveDoc` is set immediately; pass `--no-new-model` only if you actually want Rhino's start window (recent/template picker), at the cost of `ActiveDoc` staying `None` until you dismiss it manually. `wait-ready` and `doctor` warn whenever `ActiveDoc` is `None` after the plugin becomes reachable.
 
 ## CLI Subcommand Reference
 
@@ -122,7 +122,7 @@ The responsibilities are intentionally split: `launch` only starts the Rhino pro
 | `list-methods` | — | List registered RPC method names. |
 | `list-plugins` | — | List reachable `RhinoCli.Server` plugin instances (`<id>\t<port>`). |
 | `wait-ready` | (uses `--timeout`) | Block until `system.ping` succeeds. |
-| `launch` | `--app`, `--restart`, `--new-model`, `--script` | Start Rhino (macOS). |
+| `launch` | `--app`, `--restart`, `--no-new-model`, `--script` | Start Rhino (macOS). Default opens a new model so `ActiveDoc` is set. |
 | `shutdown` | `--app` | Ask Rhino to quit and wait for exit (macOS). |
 | `plugin set-port` | `<port>` | Write the bundled `RhinoCliPlugin` launch config. |
 | `plugin show-config` | — | Print the current bundled plugin launch config. |
@@ -147,7 +147,7 @@ Global flags (apply to every subcommand):
 
 ### Notes on selected subcommands
 
-- **`launch`** only starts Rhino. It does not write plugin configuration and does not wait for the RPC endpoint. Pair it with `plugin set-port` (before) and `wait-ready` (after). `--restart` quits Rhino first; `--new-model` opens a modeling window at startup; `--script` is passed through as Rhino's `-runscript` argument.
+- **`launch`** only starts Rhino. It does not write plugin configuration and does not wait for the RPC endpoint. Pair it with `plugin set-port` (before) and `wait-ready` (after). `--restart` quits Rhino first; by default a `_NoEcho` startup script opens a new modeling window so `Rhino.RhinoDoc.ActiveDoc` is set; pass `--no-new-model` to keep Rhino's start window instead (warning: `ActiveDoc` will be `None` and plugin panel/python operations will silently fail until the start window is dismissed). `--script` overrides the default startup script and is passed through as Rhino's `-runscript` argument.
 - **`plugin set-port`** writes `~/Library/Application Support/rhino-cli/RhinoCliPlugin/config.json` on macOS. The bundled plugin reads it the next time Rhino loads, so call it before `launch` (or before restarting Rhino). Third-party plugins that embed `RhinoCli.Server` configure their own ports independently.
 - **`capabilities`** is the self-describing API for AI agents and humans. It prints registered handlers, parameter shapes, result shapes, examples, side effects, and dedicated CLI wrappers. Use `--format json|markdown|agent` when another tool needs structured context.
 - **`call`** is the universal execution path for any registered handler.
@@ -214,7 +214,7 @@ Smoke-test sequence:
 
 ```bash
 rhino-cli plugin set-port 50061
-rhino-cli launch --new-model
+rhino-cli launch
 rhino-cli wait-ready --port 50061 --timeout 120
 rhino-cli capabilities --format agent --port 50061
 rhino-cli call rhino_cli.hello --port 50061

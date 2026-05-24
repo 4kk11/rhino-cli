@@ -98,7 +98,7 @@ cargo install --path .
 
 ```bash
 rhino-cli plugin set-port 50061
-rhino-cli launch --new-model
+rhino-cli launch
 rhino-cli wait-ready --port 50061 --timeout 120
 rhino-cli doctor --port 50061
 rhino-cli capabilities --format agent --port 50061
@@ -109,7 +109,7 @@ rhino-cli capture-viewport --width 1280 --height 720 --out /tmp/viewport.png --p
 rhino-cli shutdown
 ```
 
-責務は意図的に分離されている: `launch` は Rhino プロセスを起動するだけ、`plugin set-port` は同梱プラグインの listening ポートを設定するだけ、`wait-ready` は RPC エンドポイントが `system.ping` に応答するまでブロックするだけ。これらを組み合わせて使うこと。単一コマンドに 3 つの役割を兼務させない。
+責務は意図的に分離されている: `launch` は Rhino プロセスを起動するだけ、`plugin set-port` は同梱プラグインの listening ポートを設定するだけ、`wait-ready` は RPC エンドポイントが `system.ping` に応答するまでブロックするだけ。これらを組み合わせて使うこと。単一コマンドに 3 つの役割を兼務させない。デフォルトでは `launch` は起動時に `-runscript _NoEcho` を渡して新規モデリングウィンドウを開き、`RhinoDoc.ActiveDoc` が即座に確定するようにする。スタートウィンドウ (最近使ったモデル / テンプレート選択) を残したい場合のみ `--no-new-model` を指定する (この場合は手動でスタートウィンドウを閉じるまで `ActiveDoc` が `None` のままになり、プラグインのパネル / Python 操作は無音で失敗する)。`wait-ready` と `doctor` は plugin が reachable になった後に `ActiveDoc` が `None` のままなら警告を出す。
 
 ## CLI サブコマンドリファレンス
 
@@ -122,7 +122,7 @@ rhino-cli shutdown
 | `list-methods` | — | 登録済み RPC メソッド名を列挙する。 |
 | `list-plugins` | — | 到達可能な `RhinoCli.Server` プラグインインスタンスを列挙する (`<id>\t<port>`)。 |
 | `wait-ready` | (`--timeout` を使用) | `system.ping` が成功するまでブロックする。 |
-| `launch` | `--app`, `--restart`, `--new-model`, `--script` | Rhino を起動する (macOS)。 |
+| `launch` | `--app`, `--restart`, `--no-new-model`, `--script` | Rhino を起動する (macOS)。デフォルトで新規モデルを開き `ActiveDoc` を確定させる。 |
 | `shutdown` | `--app` | Rhino に終了を依頼し、終了を待つ (macOS)。 |
 | `plugin set-port` | `<port>` | 同梱 `RhinoCliPlugin` の起動コンフィグを書き込む。 |
 | `plugin show-config` | — | 現在の同梱プラグイン起動コンフィグを表示する。 |
@@ -147,7 +147,7 @@ rhino-cli shutdown
 
 ### 主なサブコマンドの補足
 
-- **`launch`** は Rhino を起動するだけ。プラグイン設定を書かず、RPC エンドポイントを待たない。`plugin set-port` (前) と `wait-ready` (後) を組み合わせること。`--restart` は起動前に Rhino を終了させる。`--new-model` はスタートウィンドウではなくモデリングウィンドウで起動する。`--script` は Rhino の `-runscript` 引数としてそのまま渡される。
+- **`launch`** は Rhino を起動するだけ。プラグイン設定を書かず、RPC エンドポイントを待たない。`plugin set-port` (前) と `wait-ready` (後) を組み合わせること。`--restart` は起動前に Rhino を終了させる。デフォルトでは `-runscript _NoEcho` を渡してスタートウィンドウをスキップし、新規モデリングウィンドウを開いて `Rhino.RhinoDoc.ActiveDoc` を確定させる。スタートウィンドウを残したい場合のみ `--no-new-model` を指定する (この場合は `ActiveDoc` が `None` のままになり、プラグインのパネル / Python 操作が無音で失敗する点に注意)。`--script` を指定するとデフォルトのスタートアップスクリプトを上書きし、Rhino の `-runscript` 引数としてそのまま渡される。
 - **`plugin set-port`** は macOS 上で `~/Library/Application Support/rhino-cli/RhinoCliPlugin/config.json` を書き込む。同梱プラグインは次回 Rhino ロード時にこれを読むため、`launch` (または Rhino 再起動) の前に呼ぶこと。`RhinoCli.Server` を組み込む第三者プラグインは独自にポート設定する。
 - **`capabilities`** は AI エージェントと人間向けの自己説明 API。登録ハンドラ・パラメータ形状・結果形状・例・副作用・専用 CLI ラッパーを表示する。他ツールに構造化コンテキストを渡すときは `--format json|markdown|agent` を使う。
 - **`call`** は登録済みハンドラ全般に対する汎用実行経路。
@@ -214,7 +214,7 @@ dotnet build plugin/RhinoCliPlugin/RhinoCliPlugin.csproj
 
 ```bash
 rhino-cli plugin set-port 50061
-rhino-cli launch --new-model
+rhino-cli launch
 rhino-cli wait-ready --port 50061 --timeout 120
 rhino-cli capabilities --format agent --port 50061
 rhino-cli call rhino_cli.hello --port 50061

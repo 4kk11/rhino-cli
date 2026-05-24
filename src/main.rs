@@ -207,10 +207,10 @@ enum Commands {
         /// Ask Rhino to quit before launching.
         #[arg(long)]
         restart: bool,
-        /// Open a new model at startup instead of leaving Rhino's start window active.
+        /// Keep Rhino's start window (recent/template picker) instead of opening a new model. Note: while the start window is up Rhino.RhinoDoc.ActiveDoc is None, which can break panel/python operations from the plugin.
         #[arg(long)]
-        new_model: bool,
-        /// Optional Rhino command script passed via -runscript.
+        no_new_model: bool,
+        /// Optional Rhino command script passed via -runscript. Overrides the default _NoEcho startup script.
         #[arg(long)]
         script: Option<String>,
     },
@@ -413,14 +413,14 @@ fn run(cli: Cli) -> Result<()> {
         Commands::Launch {
             app,
             restart,
-            new_model,
+            no_new_model,
             script,
         } => rhino_cli::commands::rhino::launch(
             &ctx,
             LaunchArgs {
                 app,
                 restart,
-                new_model,
+                no_new_model,
                 script,
             },
         ),
@@ -463,7 +463,7 @@ fn print_error(error: &CliError, host: &str, port: u16) {
                 "Rhino is not reachable at {host}:{port}. Start Rhino and RhinoCliPlugin, then retry:"
             );
             eprintln!("  rhino-cli plugin set-port {port}");
-            eprintln!("  rhino-cli launch --new-model");
+            eprintln!("  rhino-cli launch");
             eprintln!("  rhino-cli wait-ready --port {port} --timeout 120");
             eprintln!();
             eprintln!(

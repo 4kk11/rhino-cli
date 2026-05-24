@@ -23,6 +23,25 @@ where
     (port, handle)
 }
 
+fn spawn_rpc_server_n<F>(connections: usize, handler: F) -> (u16, thread::JoinHandle<()>)
+where
+    F: Fn(Value) -> Value + Send + Sync + 'static,
+{
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let handle = thread::spawn(move || {
+        for _ in 0..connections {
+            let (mut stream, _) = listener.accept().unwrap();
+            let request = read_request(&stream);
+            let response = handler(request);
+            let mut line = serde_json::to_string(&response).unwrap();
+            line.push('\n');
+            stream.write_all(line.as_bytes()).unwrap();
+        }
+    });
+    (port, handle)
+}
+
 fn read_request(stream: &TcpStream) -> Value {
     let mut line = String::new();
     BufReader::new(stream.try_clone().unwrap())
@@ -282,6 +301,103 @@ fn call_builds_object_params_from_key_value_flags() {
 }
 
 #[test]
+fn wait_ready_warns_when_active_doc_missing() {
+    let (port, handle) = spawn_rpc_server_n(2, |request| match request["method"].as_str() {
+        Some("system.ping") => json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {"pong": true}
+        }),
+        Some("rhino.run_python") => json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {
+                "status": "ok",
+                "success": true,
+                "stdout": "",
+                "result": "{\"active_doc\": false, \"open_count\": 0}",
+                "result_repr": ""
+            }
+        }),
+        other => panic!("unexpected method {other:?}"),
+    });
+
+    bin()
+        .args(["wait-ready", "--port", &port.to_string(), "--timeout", "2"])
+        .assert()
+        .success()
+        .stdout("")
+        .stderr(predicate::str::contains("Rhino.RhinoDoc.ActiveDoc is None"));
+    handle.join().unwrap();
+}
+
+#[test]
+fn wait_ready_silent_when_active_doc_present() {
+    let (port, handle) = spawn_rpc_server_n(2, |request| match request["method"].as_str() {
+        Some("system.ping") => json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {"pong": true}
+        }),
+        Some("rhino.run_python") => json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {
+                "status": "ok",
+                "success": true,
+                "stdout": "",
+                "result": "{\"active_doc\": true, \"open_count\": 1}",
+                "result_repr": ""
+            }
+        }),
+        other => panic!("unexpected method {other:?}"),
+    });
+
+    bin()
+        .args(["wait-ready", "--port", &port.to_string(), "--timeout", "2"])
+        .assert()
+        .success()
+        .stdout("")
+        .stderr("");
+    handle.join().unwrap();
+}
+
+#[test]
+fn doctor_reports_warning_when_active_doc_missing() {
+    let (port, handle) = spawn_rpc_server_n(2, |request| match request["method"].as_str() {
+        Some("system.ping") => json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {"pong": true, "server": "RhinoCliPlugin", "version": "0.1.0"}
+        }),
+        Some("rhino.run_python") => json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {
+                "status": "ok",
+                "success": true,
+                "stdout": "",
+                "result": "{\"active_doc\": false, \"open_count\": 0}",
+                "result_repr": ""
+            }
+        }),
+        other => panic!("unexpected method {other:?}"),
+    });
+
+    bin()
+        .args(["doctor", "--port", &port.to_string()])
+        .assert()
+        .success()
+        .stdout(
+            predicate::str::contains("Document: active_doc=false open_count=0")
+                .and(predicate::str::contains(
+                    "Rhino.RhinoDoc.ActiveDoc is None",
+                )),
+        );
+    handle.join().unwrap();
+}
+
+#[test]
 fn wait_ready_returns_success_after_ping() {
     let (port, handle) = spawn_rpc_server(|request| {
         assert_eq!(request["method"], "system.ping");
@@ -340,7 +456,7 @@ fn connection_refused_prints_rhino_start_hint() {
                 .and(predicate::str::contains(format!(
                     "rhino-cli plugin set-port {port}"
                 )))
-                .and(predicate::str::contains("rhino-cli launch --new-model"))
+                .and(predicate::str::contains("rhino-cli launch"))
                 .and(predicate::str::contains(format!(
                     "rhino-cli wait-ready --port {port} --timeout 120"
                 ))),
