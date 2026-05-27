@@ -66,6 +66,12 @@ pub struct InspectTypeWithBodyArgs {
 }
 
 #[derive(Clone, Debug)]
+pub struct ExecutePanelJsArgs {
+    pub panel: String,
+    pub script: String,
+}
+
+#[derive(Clone, Debug)]
 pub struct CaptureViewportArgs {
     pub viewport: Option<String>,
     pub width: u32,
@@ -140,6 +146,16 @@ pub fn new_model(ctx: &CommandContext, args: NewModelArgs) -> Result<()> {
         None => json!(null),
     };
     let result = ctx.client().call("rhino.new_model", params)?;
+    print_json(&result, ctx.pretty)?;
+    Ok(())
+}
+
+pub fn execute_panel_js(ctx: &CommandContext, args: ExecutePanelJsArgs) -> Result<()> {
+    let params = json!({
+        "panel": args.panel,
+        "script": args.script,
+    });
+    let result = ctx.client().call("rhino.execute_in_panel_webview", params)?;
     print_json(&result, ctx.pretty)?;
     Ok(())
 }

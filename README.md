@@ -136,6 +136,7 @@ The responsibilities are intentionally split: `launch` only starts the Rhino pro
 | `inspect-type` | `<fqn>`, `--binding`, `--include-inherited`, `--with-body` | Reflect a .NET type loaded inside Rhino. |
 | `search-types` | `<pattern>`, `--scope`, `--assembly`, `--limit` | Find types or members by case-insensitive substring. |
 | `decompile-method` | `<type> <method>`, `--signature` | Decompile a single .NET method to C#. |
+| `execute-panel-js` | `<panel_guid> <script>` | Run JavaScript inside the first Eto.Forms.WebView under a panel. |
 
 Global flags (apply to every subcommand):
 
@@ -189,6 +190,7 @@ Registered by the bundled plugin at startup:
 | `rhino.search_types` | Find types or members by case-insensitive substring across loaded assemblies. |
 | `rhino.decompile_method` | Decompile a single method to C# via ICSharpCode.Decompiler. |
 | `rhino.capture_viewport` | Capture a viewport to PNG with structured display-mode / camera / projection control. Returns `png_base64` plus applied state. |
+| `rhino.execute_in_panel_webview` | Run JavaScript inside the first `Eto.Forms.WebView` under a panel (resolved by GUID). Wraps the script in an IIFE so `return` works and serializes the result via `JSON.stringify` for typed values. Replaces the reflection-based `_webView` private-field workaround. |
 
 ### Why the handler set is intentionally small
 

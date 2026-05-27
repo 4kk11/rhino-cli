@@ -136,6 +136,7 @@ rhino-cli shutdown
 | `inspect-type` | `<fqn>`, `--binding`, `--include-inherited`, `--with-body` | Rhino プロセス内にロードされた .NET 型をリフレクションする。 |
 | `search-types` | `<pattern>`, `--scope`, `--assembly`, `--limit` | 型・メンバーを部分一致 (大小無視) で検索する。 |
 | `decompile-method` | `<type> <method>`, `--signature` | 1 メソッドを C# に逆コンパイルする。 |
+| `execute-panel-js` | `<panel_guid> <script>` | パネル内最初の `Eto.Forms.WebView` で JavaScript を実行する。 |
 
 グローバルフラグ (全サブコマンド共通):
 
@@ -189,6 +190,7 @@ rhino-cli shutdown
 | `rhino.search_types` | ロード済みアセンブリ横断で型・メンバーを部分一致 (大小無視) 検索する。 |
 | `rhino.decompile_method` | ICSharpCode.Decompiler で 1 メソッドを C# に逆コンパイルする。 |
 | `rhino.capture_viewport` | 表示モード・カメラ・投影を構造化制御して 1 ビューポートを PNG 撮影する。`png_base64` と適用済みステートを返す。 |
+| `rhino.execute_in_panel_webview` | パネル（GUID で解決）配下の最初の `Eto.Forms.WebView` で JavaScript を実行する。スクリプトは IIFE で wrap されるので `return` がそのまま使え、戻り値は `JSON.stringify` 経由で型付きの `value` として返る。private field を reflection で抜く既存パターンを置き換える。 |
 
 ### ハンドラセットを意図的に小さく保つ理由
 

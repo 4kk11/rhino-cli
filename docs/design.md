@@ -432,6 +432,14 @@ rhino-cli screenshot [--app "Rhino 8"] [--out <PNG>] [--window-id <ID>] [--no-ac
 
 macOS のウィンドウキャプチャとして Rhino アプリの前面ウィンドウを PNG に保存する。RPC サーバやプラグイン handler には依存しないため、Rhino が起動していれば `run-script` や `history` の結果と合わせて AI エージェントが視覚的にデバッグできる。`--out` 未指定時は `rhino-screenshot-<unix>.png` をカレントディレクトリに作る。`--no-shadow` は macOS のウィンドウ影を除外し、`--window-id` は既知の window id を直接指定する。実行端末には macOS の Screen Recording 権限が必要。
 
+#### 4.2.19 `execute-panel-js`
+
+```
+rhino-cli execute-panel-js <PANEL_GUID> <SCRIPT>
+```
+
+`rhino.execute_in_panel_webview` の専用 CLI。GUID で `Rhino.UI.Panels.GetPanel` を引き、その Eto control 木から最初の `Eto.Forms.WebView` を見つけて JS を実行する。`<SCRIPT>` は IIFE wrap されるので `return <expr>` で値を返せる。戻り値は handler 側で `JSON.stringify` してから JSON.parse され、`{ status, value, panel_type }` で返る。AICmdHub / Lattice のような WebView panel plugin を、private field の reflection ハックなしで自律デバッグするための専用経路。詳細は `docs/protocol.md` §3.6.5。
+
 ### 4.3 終了コード
 
 | コード | 意味 |

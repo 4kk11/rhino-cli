@@ -644,6 +644,42 @@ fn new_model_sends_template_path() {
 }
 
 #[test]
+fn execute_panel_js_sends_panel_and_script() {
+    let (port, handle) = spawn_rpc_server(|request| {
+        assert_eq!(request["method"], "rhino.execute_in_panel_webview");
+        assert_eq!(
+            request["params"],
+            json!({
+                "panel": "F2A3B4C5-D6E7-8901-ABCD-EF0123456789",
+                "script": "return document.readyState"
+            })
+        );
+        json!({
+            "jsonrpc": "2.0",
+            "id": request["id"].clone(),
+            "result": {
+                "status": "ok",
+                "value": "complete",
+                "panel_type": "AICmdHub.Panels.MainPanel"
+            }
+        })
+    });
+
+    bin()
+        .args([
+            "execute-panel-js",
+            "F2A3B4C5-D6E7-8901-ABCD-EF0123456789",
+            "return document.readyState",
+            "--port",
+            &port.to_string(),
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"value\":\"complete\""));
+    handle.join().unwrap();
+}
+
+#[test]
 fn screenshot_rejects_invalid_app_name_before_os_capture() {
     bin()
         .args(["screenshot", "--app", "Rhino 8; rm -rf /"])

@@ -185,6 +185,7 @@ null
 | `rhino.search_types` | `{ "pattern": "AddBox", "scope"?: "all" \| "types" \| "members", "assembly"?: string, "limit"?: int }` | ロード済みアセンブリから型 / メンバ名の部分一致 (case-insensitive) を検索する。`inspect_type` 前段の FQN 解決用。デフォルトは `Rhino*` / `RhinoCommon` / `RhinoCli*` 配下に絞り込む。詳細は §3.6.2 |
 | `rhino.decompile_method` | `{ "type": "Rhino.Geometry.Box", "method": "ClosestPoint", "signature"?: "Point3d" }` | ICSharpCode.Decompiler でメソッド本体の IL を C# 復元して返す。`inspect_type` がシグネチャしか返さないのに対し、これは実装まで覗ける。overload は `signature` (カンマ区切りの型名) で絞り込む。詳細は §3.6.3 |
 | `rhino.capture_viewport` | `{ "width": int, "height": int, "viewport"?: string, "mode"?: string, "projection"?: "perspective"\|"parallel", "camera"?: [x,y,z], "target"?: [x,y,z], "zoom_extents"?: bool, "transparent_background"?: bool }` | 単一 viewport を UI thread で `RhinoView.CaptureToBitmap(Size, DisplayModeDescription)` し PNG base64 で返す。display mode は非破壊（capture overload に渡すだけ）、projection / camera / zoom_extents は viewport を mutate するが state は復元しない（冪等な再キャプチャ前提）。`transparent_background` は `DisplayPipelineAttributes.FillMode = Transparent` で実現。詳細は §3.6.4 |
+| `rhino.execute_in_panel_webview` | `{ "panel": "GUID", "script": "return ..." }` | パネル（`Rhino.UI.Panels.GetPanel(Guid)`）の Eto control 木を depth-first で走査し、最初に見つけた `Eto.Forms.WebView` で JS を実行する。スクリプトは IIFE と try/catch で wrap されるので `return <expr>` をそのまま書ける。戻り値は handler 側で `JSON.stringify` 経由でシリアライズして `value` に格納（任意の JSON 型）。WebView パネル plugin の自律デバッグ用に、private field を reflection で抜き出すパターンを置き換える。詳細は §3.6.5 |
 
 #### 3.6.1 `rhino.inspect_type` の詳細
 
@@ -424,6 +425,61 @@ viewport state そのものを示すので、撮影内容と等価。issue 方�
 
 - `screenshot`: macOS `screencapture` で Rhino アプリ全体（4 viewport + toolbar + panels）を撮る。プラグイン不要、UI 全体の見た目を確認する用途
 - `capture_viewport`: in-process `CaptureToBitmap`。単一 viewport を指定 mode / camera / projection で。プラグイン経由、AI が結果検証する用途
+
+#### 3.6.5 `rhino.execute_in_panel_webview` の詳細
+
+Eto WebView を使う panel plugin（AICmdHub, Lattice 等）を AI が自律デバッグするための JS 実行ハンドラ。private field を reflection で抜くお決まりパターン（`GetField("_webView", BindingFlags.NonPublic | BindingFlags.Instance)` 等）を置き換える。
+
+**境界ポリシー的位置付け**: `run_python` で同等のことは可能だが、(1) `Rhino.UI.Panels` への型付きアクセス、(2) Eto control 木の再帰探索、(3) UI thread invocation の三点が Python 経由だと毎回ボイラープレートになり壊れやすい。「概念単位で 1 つ・構造化 I/O が意味を持つ・run_python での実装が困難」の三条件を満たすので handler 化した。
+
+**パラメータ**:
+
+| 名前 | 必須 | 説明 |
+|------|------|------|
+| `panel` | ✓ | パネル GUID（文字列）。`Guid.Parse` できる形式。対象 panel が 1 度も表示されたことがないと `Rhino.UI.Panels.GetPanel` が `null` を返すので、事前にパネルを開く必要がある |
+| `script` | ✓ | JavaScript 文字列。handler 側で `(function(){ try { var __v = (function(){ <USER> })(); return JSON.stringify({__ok:true, value: __v ?? null}); } catch (e) { return JSON.stringify({__ok:false, error: String(e), stack: e?.stack}); } })()` に wrap される。ユーザーは `return <expr>` を書けばよい。`return` 省略時は `value: null` |
+
+**結果スキーマ**:
+
+```jsonc
+// 成功
+{ "status": "ok", "value": <any JSON>, "panel_type": "AICmdHub.Panels.MainPanel" }
+
+// パネルが未表示 / GUID 不一致
+{ "status": "panel_not_found", "error": "...", "panel_type"?: "..." }
+
+// パネル内に WebView がない
+{ "status": "webview_not_found", "error": "...", "panel_type": "..." }
+
+// JS が throw / wrapper が parse できない
+{ "status": "execution_error", "error": "...", "stack"?: "...", "raw"?: "...", "panel_type"?: "..." }
+```
+
+**WebView 探索**: panel instance を `Eto.Forms.Control` にキャストし、`Container.Children` を depth-first で walk。最初に見つかった `Eto.Forms.WebView` を返す。1 panel に複数 WebView がある（Splitter で並べている）ケースは MVP では非対応で、最初の 1 つだけ。
+
+**戻り値 serialize**: WebView の `ExecuteScript` は string しか返さないため、wrapper 内で `JSON.stringify` し、handler 側で `JsonNode.Parse` して `value` フィールドにそのまま埋め込む。プリミティブ・配列・オブジェクトすべて自然に JSON で取れる。
+
+**典型 examples**:
+
+```bash
+# DOM readyState
+rhino-cli execute-panel-js F2A3B4C5-D6E7-8901-ABCD-EF0123456789 'return document.readyState'
+
+# 構造化された値
+rhino-cli execute-panel-js <GUID> 'return { title: document.title, url: location.href, elements: document.querySelectorAll("*").length }'
+
+# DOM 操作（side effect あり）
+rhino-cli execute-panel-js <GUID> 'document.querySelector("button.send").click(); return "clicked"'
+```
+
+**注意点**:
+
+- WebView の Web Inspector への接続は別問題。macOS Safari の "Develop > [Rhino process]" で web inspector を開きたい場合は、対象 WebView の native control `Inspectable` を別途立てる必要がある（このハンドラの責務外）
+- 同一 JS でも macOS WKWebView と Windows WebView2 で挙動が異なるケースがある（CSS / モダン JS の差異）。これは caller 側で吸収する
+
+**macOS 内部の async 待ち合わせ**: WKWebView の `EvaluateJavaScript` は非同期で、Eto の `WebView.ExecuteScript`（同期 overload）は Mac で `null` を返す。handler は `ExecuteScriptAsync` の `Task<string>` を、`Eto.Forms.Application.Instance.RunIteration()` で Eto run loop を pump しつつ完了を待つ。タイムアウトは 10 秒固定（超過時は `status: "execution_error"`）。pump 中も Rhino UI thread を握っているので、長時間ブロックする JS（無限ループ等）はそのまま Rhino を固める可能性がある — 短時間で完結する script を渡すこと。
+
+**対象パネルは事前に表示する**: `Rhino.UI.Panels.GetPanel(Guid)` は「一度も表示されたことがない panel に対しては `null` を返す」仕様。AI agent からは事前に `rhino-cli call rhino.run_python '{"source":"import Rhino, System\\nRhino.UI.Panels.OpenPanel(System.Guid(\"<GUID>\"))"}'` で開いておく。
 
 ### 3.7 API 発見プレイブック (AI 向け)
 

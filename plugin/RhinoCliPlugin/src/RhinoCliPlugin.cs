@@ -33,6 +33,7 @@ public sealed class RhinoCliPlugin : PlugIn
             registry.Register("rhino.search_types", new SearchTypesHandler());
             registry.Register("rhino.decompile_method", new DecompileMethodHandler());
             registry.Register("rhino.capture_viewport", new CaptureViewportHandler());
+            registry.Register("rhino.execute_in_panel_webview", new ExecuteInPanelWebViewHandler());
 
             _server = new TcpServer(port, registry, "RhinoCliPlugin", InvokeOnUiThread);
             _server.OnError += message => RhinoApp.WriteLine($"RhinoCliPlugin: {message}");

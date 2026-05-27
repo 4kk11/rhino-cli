@@ -10,8 +10,9 @@ use rhino_cli::commands::capabilities::{CapabilitiesArgs, CapabilitiesFormat};
 use rhino_cli::commands::doctor::DoctorArgs;
 use rhino_cli::commands::rhino::{LaunchArgs, ScreenshotArgs, ShutdownArgs};
 use rhino_cli::commands::rhino_rpc::{
-    CaptureViewportArgs, DecompileMethodArgs, HistoryArgs, InspectTypeArgs, InspectTypeWithBodyArgs,
-    ListCommandsArgs, NewModelArgs, ProbeCommandArgs, RunScriptArgs, SearchTypesArgs,
+    CaptureViewportArgs, DecompileMethodArgs, ExecutePanelJsArgs, HistoryArgs, InspectTypeArgs,
+    InspectTypeWithBodyArgs, ListCommandsArgs, NewModelArgs, ProbeCommandArgs, RunScriptArgs,
+    SearchTypesArgs,
 };
 use rhino_cli::commands::CommandContext;
 use rhino_cli::error::{CliError, Result};
@@ -165,6 +166,13 @@ enum Commands {
         /// Comma-separated parameter type names to pick a specific overload (FullName or short Name).
         #[arg(long)]
         signature: Option<String>,
+    },
+    /// Execute JavaScript inside the first Eto.Forms.WebView under a panel (resolved by GUID).
+    ExecutePanelJs {
+        /// Panel GUID (must have been displayed at least once so Rhino.UI.Panels.GetPanel returns its instance).
+        panel: String,
+        /// JavaScript source. Use `return ...` to send a value back; structured returns should call JSON.stringify(...) or return objects directly.
+        script: String,
     },
     /// Capture a single Rhino viewport to PNG via the plugin's CaptureToBitmap.
     CaptureViewport {
@@ -384,6 +392,12 @@ fn run(cli: Cli) -> Result<()> {
                 signature,
             },
         ),
+        Commands::ExecutePanelJs { panel, script } => {
+            rhino_cli::commands::rhino_rpc::execute_panel_js(
+                &ctx,
+                ExecutePanelJsArgs { panel, script },
+            )
+        }
         Commands::CaptureViewport {
             viewport,
             width,
