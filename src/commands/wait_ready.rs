@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::json;
 
+use crate::commands::document_state::{self, ACTIVE_DOC_MISSING_WARNING};
 use crate::commands::CommandContext;
 use crate::error::{CliError, Result};
 
@@ -13,7 +14,8 @@ pub fn run(ctx: &CommandContext, ready_timeout: Duration) -> Result<()> {
     loop {
         match ctx.client().call("system.ping", json!(null)) {
             Ok(result) if result.get("pong").and_then(|value| value.as_bool()) == Some(true) => {
-                return Ok(())
+                warn_if_active_doc_missing(ctx);
+                return Ok(());
             }
             _ if started.elapsed() >= ready_timeout => {
                 return Err(CliError::Timeout(format!(
@@ -22,6 +24,18 @@ pub fn run(ctx: &CommandContext, ready_timeout: Duration) -> Result<()> {
                 )))
             }
             _ => thread::sleep(interval),
+        }
+    }
+}
+
+fn warn_if_active_doc_missing(ctx: &CommandContext) {
+    if ctx.quiet {
+        return;
+    }
+    let client = ctx.client();
+    if let Ok(Some(state)) = document_state::probe(&client) {
+        if state.active_doc_missing() {
+            eprintln!("{ACTIVE_DOC_MISSING_WARNING}");
         }
     }
 }

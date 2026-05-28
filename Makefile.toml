@@ -55,3 +55,41 @@ args = ["build", "server/RhinoCli.TestRunner/RhinoCli.TestRunner.csproj"]
 description = "Build and install the bundled RhinoCliPlugin into Rhino's plugin directory."
 command = "dotnet"
 args = ["build", "plugin/RhinoCliPlugin/RhinoCliPlugin.csproj"]
+
+[tasks.publish-dry-run]
+description = "Run `cargo publish --dry-run` to verify the crate is ready for crates.io."
+command = "cargo"
+args = ["publish", "--dry-run"]
+
+[tasks.yak-build]
+description = "Build a Release .yak package for the bundled RhinoCliPlugin (macOS)."
+script_runner = "@shell"
+script = '''
+set -euo pipefail
+PLUGIN_DIR="plugin/RhinoCliPlugin"
+OUT_DIR="${PLUGIN_DIR}/bin/Release/net7.0"
+YAK_BIN="${YAK_BIN:-/Applications/Rhino 8.app/Contents/Resources/bin/yak}"
+
+dotnet build "${PLUGIN_DIR}/RhinoCliPlugin.csproj" -c Release
+cp "${PLUGIN_DIR}/manifest.yml" "${OUT_DIR}/"
+
+cd "${OUT_DIR}"
+"${YAK_BIN}" build --platform mac
+ls -1 *.yak
+'''
+
+[tasks.yak-push]
+description = "Push the .yak package built by `cargo make yak-build` to the Yak server. Requires `yak login` beforehand."
+script_runner = "@shell"
+script = '''
+set -euo pipefail
+OUT_DIR="plugin/RhinoCliPlugin/bin/Release/net7.0"
+YAK_BIN="${YAK_BIN:-/Applications/Rhino 8.app/Contents/Resources/bin/yak}"
+
+PKG=$(ls -1t "${OUT_DIR}"/*.yak 2>/dev/null | head -n 1)
+if [ -z "${PKG}" ]; then
+  echo "no .yak package found in ${OUT_DIR}; run \`cargo make yak-build\` first" >&2
+  exit 1
+fi
+"${YAK_BIN}" push "${PKG}"
+'''

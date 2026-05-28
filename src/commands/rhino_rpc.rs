@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use base64::Engine;
 use serde_json::{json, Value};
 
 use crate::commands::{print_json, CommandContext};
@@ -34,6 +35,54 @@ pub struct ListCommandsArgs {
 #[derive(Clone, Debug)]
 pub struct ProbeCommandArgs {
     pub name: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct InspectTypeArgs {
+    pub name: String,
+    pub binding: Option<String>,
+    pub include_inherited: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct SearchTypesArgs {
+    pub pattern: String,
+    pub scope: Option<String>,
+    pub assembly: Option<String>,
+    pub limit: Option<u32>,
+}
+
+#[derive(Clone, Debug)]
+pub struct DecompileMethodArgs {
+    pub type_name: String,
+    pub method: String,
+    pub signature: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct InspectTypeWithBodyArgs {
+    pub inspect: InspectTypeArgs,
+    pub with_body: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ExecutePanelJsArgs {
+    pub panel: String,
+    pub script: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct CaptureViewportArgs {
+    pub viewport: Option<String>,
+    pub width: u32,
+    pub height: u32,
+    pub mode: Option<String>,
+    pub projection: Option<String>,
+    pub camera: Option<String>,
+    pub target: Option<String>,
+    pub zoom_extents: bool,
+    pub transparent: bool,
+    pub out: Option<PathBuf>,
 }
 
 pub fn run_script(ctx: &CommandContext, args: RunScriptArgs) -> Result<()> {
@@ -101,6 +150,16 @@ pub fn new_model(ctx: &CommandContext, args: NewModelArgs) -> Result<()> {
     Ok(())
 }
 
+pub fn execute_panel_js(ctx: &CommandContext, args: ExecutePanelJsArgs) -> Result<()> {
+    let params = json!({
+        "panel": args.panel,
+        "script": args.script,
+    });
+    let result = ctx.client().call("rhino.execute_in_panel_webview", params)?;
+    print_json(&result, ctx.pretty)?;
+    Ok(())
+}
+
 pub fn list_commands(ctx: &CommandContext, args: ListCommandsArgs) -> Result<()> {
     let mut params = json!({
         "include_unloaded": args.include_unloaded
@@ -117,5 +176,193 @@ pub fn probe_command(ctx: &CommandContext, args: ProbeCommandArgs) -> Result<()>
     let params = json!({ "name": args.name });
     let result = ctx.client().call("rhino.probe_command", params)?;
     print_json(&result, ctx.pretty)?;
+    Ok(())
+}
+
+pub fn inspect_type(ctx: &CommandContext, args: InspectTypeArgs) -> Result<()> {
+    let mut params = json!({
+        "name": args.name,
+        "include_inherited": args.include_inherited,
+    });
+    if let Some(binding) = args.binding {
+        params["binding"] = json!(binding);
+    }
+    let result = ctx.client().call("rhino.inspect_type", params)?;
+    print_json(&result, ctx.pretty)?;
+    Ok(())
+}
+
+pub fn search_types(ctx: &CommandContext, args: SearchTypesArgs) -> Result<()> {
+    let mut params = json!({ "pattern": args.pattern });
+    if let Some(scope) = args.scope {
+        params["scope"] = json!(scope);
+    }
+    if let Some(assembly) = args.assembly {
+        params["assembly"] = json!(assembly);
+    }
+    if let Some(limit) = args.limit {
+        params["limit"] = json!(limit);
+    }
+    let result = ctx.client().call("rhino.search_types", params)?;
+    print_json(&result, ctx.pretty)?;
+    Ok(())
+}
+
+pub fn decompile_method(ctx: &CommandContext, args: DecompileMethodArgs) -> Result<()> {
+    let mut params = json!({
+        "type": args.type_name,
+        "method": args.method,
+    });
+    if let Some(signature) = args.signature {
+        params["signature"] = json!(signature);
+    }
+    let result = ctx.client().call("rhino.decompile_method", params)?;
+    print_json(&result, ctx.pretty)?;
+    Ok(())
+}
+
+fn parse_xyz(label: &str, raw: &str) -> Result<[f64; 3]> {
+    let parts: Vec<&str> = raw.split(',').map(str::trim).collect();
+    if parts.len() != 3 {
+        return Err(CliError::InvalidInput(format!(
+            "--{label} expects three comma-separated numbers, got {raw:?}"
+        )));
+    }
+    let mut out = [0.0f64; 3];
+    for (i, p) in parts.iter().enumerate() {
+        out[i] = p.parse::<f64>().map_err(|_| {
+            CliError::InvalidInput(format!(
+                "--{label} component {} is not a number: {p:?}",
+                i + 1
+            ))
+        })?;
+    }
+    Ok(out)
+}
+
+pub fn capture_viewport(ctx: &CommandContext, args: CaptureViewportArgs) -> Result<()> {
+    let mut params = json!({
+        "width": args.width,
+        "height": args.height,
+    });
+    if let Some(v) = args.viewport {
+        params["viewport"] = json!(v);
+    }
+    if let Some(m) = args.mode {
+        params["mode"] = json!(m);
+    }
+    if let Some(p) = args.projection {
+        params["projection"] = json!(p);
+    }
+    if let Some(c) = args.camera {
+        params["camera"] = json!(parse_xyz("camera", &c)?);
+    }
+    if let Some(t) = args.target {
+        params["target"] = json!(parse_xyz("target", &t)?);
+    }
+    if args.zoom_extents {
+        params["zoom_extents"] = json!(true);
+    }
+    if args.transparent {
+        params["transparent_background"] = json!(true);
+    }
+
+    let result = ctx.client().call("rhino.capture_viewport", params)?;
+
+    if let Some(out_path) = args.out {
+        let b64 = result
+            .get("png_base64")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                CliError::InvalidResponse(
+                    "capture_viewport response is missing png_base64".to_string(),
+                )
+            })?;
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(b64)
+            .map_err(|e| CliError::InvalidResponse(format!("base64 decode failed: {e}")))?;
+        if let Some(parent) = out_path.parent().filter(|p| !p.as_os_str().is_empty()) {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                CliError::Other(format!(
+                    "failed to create directory {}: {e}",
+                    parent.display()
+                ))
+            })?;
+        }
+        std::fs::write(&out_path, &bytes).map_err(|e| {
+            CliError::Other(format!("failed to write {}: {e}", out_path.display()))
+        })?;
+        if !ctx.quiet {
+            println!("{}", out_path.display());
+        }
+        return Ok(());
+    }
+
+    print_json(&result, ctx.pretty)?;
+    Ok(())
+}
+
+pub fn inspect_type_with_body(ctx: &CommandContext, args: InspectTypeWithBodyArgs) -> Result<()> {
+    let mut inspect_params = json!({
+        "name": args.inspect.name,
+        "include_inherited": args.inspect.include_inherited,
+    });
+    if let Some(binding) = args.inspect.binding {
+        inspect_params["binding"] = json!(binding);
+    }
+    let client = ctx.client();
+    let mut inspect_result = client.call("rhino.inspect_type", inspect_params)?;
+
+    if let Some(methods) = inspect_result
+        .get_mut("methods")
+        .and_then(Value::as_array_mut)
+    {
+        for target_name in &args.with_body {
+            // Collect overload count for this method group.
+            let group_idx = methods
+                .iter()
+                .position(|m| m.get("name").and_then(Value::as_str) == Some(target_name.as_str()));
+            let Some(idx) = group_idx else { continue };
+            let overload_count = methods[idx]
+                .get("overloads")
+                .and_then(Value::as_array)
+                .map(|a| a.len())
+                .unwrap_or(0);
+
+            for ov in 0..overload_count {
+                // Build signature filter from overload params types.
+                let sig = methods[idx]["overloads"][ov]
+                    .get("params")
+                    .and_then(Value::as_array)
+                    .map(|ps| {
+                        ps.iter()
+                            .filter_map(|p| p.get("type").and_then(Value::as_str))
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    })
+                    .unwrap_or_default();
+
+                let mut params = json!({
+                    "type": args.inspect.name,
+                    "method": target_name,
+                });
+                if !sig.is_empty() {
+                    params["signature"] = json!(sig);
+                }
+                match client.call("rhino.decompile_method", params) {
+                    Ok(body) => {
+                        if let Some(csharp) = body.get("csharp").and_then(Value::as_str) {
+                            methods[idx]["overloads"][ov]["body"] = json!(csharp);
+                        }
+                    }
+                    Err(err) => {
+                        methods[idx]["overloads"][ov]["body_error"] = json!(err.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    print_json(&inspect_result, ctx.pretty)?;
     Ok(())
 }

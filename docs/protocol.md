@@ -181,6 +181,352 @@ null
 | `rhino.clear_command_history` | `null` | Rhino history console buffer を消去する |
 | `rhino.list_commands` | `null` または `{ "pattern": "Box", "include_unloaded": false }` | Rhino に登録済みのコマンド名一覧を返す。AI agent のコマンド発見用 |
 | `rhino.probe_command` | `{ "name": "Box" }` | コマンドを `! _-{Name} _Cancel × 5` で起動・即時中断し（300ms 経過時には background thread から `RhinoApp.SendKeystrokes("")` で Esc も送出）、最初の Get プロンプトを `RhinoApp.CommandPrompt` から、Write/WriteLine 出力を `RhinoApp.CapturedCommandWindowStrings` から捕獲して返す。option short code は `(D)` `(P)` 等 ASCII 安定で `_D` `_P` としてそのまま渡せる |
+| `rhino.inspect_type` | `{ "name": "Rhino.Geometry.Box", "binding"?: "public" \| "public_instance" \| "public_static" \| "non_public" \| "all", "include_inherited"?: bool }` | `System.Reflection` でロード済みの .NET 型を内省し、constructors / properties / methods（オーバーロードはグルーピング）/ events / fields を構造化 JSON で返す。型解決は FQN のみ（末尾一致なし）。`run_python` で RhinoCommon を呼ぶ前の API 発見用。詳細は §3.6.1 |
+| `rhino.search_types` | `{ "pattern": "AddBox", "scope"?: "all" \| "types" \| "members", "assembly"?: string, "limit"?: int }` | ロード済みアセンブリから型 / メンバ名の部分一致 (case-insensitive) を検索する。`inspect_type` 前段の FQN 解決用。デフォルトは `Rhino*` / `RhinoCommon` / `RhinoCli*` 配下に絞り込む。詳細は §3.6.2 |
+| `rhino.decompile_method` | `{ "type": "Rhino.Geometry.Box", "method": "ClosestPoint", "signature"?: "Point3d" }` | ICSharpCode.Decompiler でメソッド本体の IL を C# 復元して返す。`inspect_type` がシグネチャしか返さないのに対し、これは実装まで覗ける。overload は `signature` (カンマ区切りの型名) で絞り込む。詳細は §3.6.3 |
+| `rhino.capture_viewport` | `{ "width": int, "height": int, "viewport"?: string, "mode"?: string, "projection"?: "perspective"\|"parallel", "camera"?: [x,y,z], "target"?: [x,y,z], "zoom_extents"?: bool, "transparent_background"?: bool }` | 単一 viewport を UI thread で `RhinoView.CaptureToBitmap(Size, DisplayModeDescription)` し PNG base64 で返す。display mode は非破壊（capture overload に渡すだけ）、projection / camera / zoom_extents は viewport を mutate するが state は復元しない（冪等な再キャプチャ前提）。`transparent_background` は `DisplayPipelineAttributes.FillMode = Transparent` で実現。詳細は §3.6.4 |
+| `rhino.execute_in_panel_webview` | `{ "panel": "GUID", "script": "return ..." }` | パネル（`Rhino.UI.Panels.GetPanel(Guid)`）の Eto control 木を depth-first で走査し、最初に見つけた `Eto.Forms.WebView` で JS を実行する。スクリプトは IIFE と try/catch で wrap されるので `return <expr>` をそのまま書ける。戻り値は handler 側で `JSON.stringify` 経由でシリアライズして `value` に格納（任意の JSON 型）。WebView パネル plugin の自律デバッグ用に、private field を reflection で抜き出すパターンを置き換える。詳細は §3.6.5 |
+
+#### 3.6.1 `rhino.inspect_type` の詳細
+
+`run_python` で AI が知らない型を扱う前に、constructor のオーバーロードや
+property の型を事前確認するための発見ハンドラ。`System.Reflection` で
+Rhino プロセスにロード済みのアセンブリを直接 reflection するので、
+プラグインが追加した型もそのまま対象になる。
+
+**型解決ポリシー**: `Type.GetType(name)` → 失敗時は
+`AppDomain.CurrentDomain.GetAssemblies()` を巡って `Assembly.GetType(name)`。
+**末尾一致フォールバックは行わない** (`Box` だけで `Rhino.Geometry.Box`
+を解決する等)。短い名前から FQN を引きたい場合はまず `rhino.search_types`
+（Phase C で追加予定）を使う。
+
+**binding パラメータ**:
+
+| 値 | 含まれるメンバ |
+|----|----------------|
+| `"public"` (デフォルト) | Public Instance + Public Static |
+| `"public_instance"` | Public Instance のみ |
+| `"public_static"` | Public Static のみ |
+| `"non_public"` | NonPublic + Public, Instance + Static |
+| `"all"` | NonPublic + Public, Instance + Static |
+
+**`include_inherited`**: デフォルトは `false` (DeclaredOnly)。`true` で
+親クラスのメンバも結果に含める。constructors は常に DeclaredOnly。
+
+**結果スキーマ抜粋**:
+
+```jsonc
+{
+  "full_name": "Rhino.Geometry.Box",
+  "assembly": "RhinoCommon",
+  "kind": "struct",          // "class" | "struct" | "interface" | "enum"
+  "is_abstract": false,
+  "is_sealed": false,
+  "base_type": "System.ValueType",
+  "interfaces": ["..."],
+  "summary": "Represents the value of a plane and three intervals...",
+  "constructors": [
+    {
+      "params": [{"name": "plane", "type": "Rhino.Geometry.Plane", "summary": "...", ...}, ...],
+      "is_public": true,
+      "summary": "Initializes a new instance of the Box class..."
+    }
+  ],
+  "properties": [
+    { "name": "Center", "type": "Rhino.Geometry.Point3d", "get": true, "set": false, "static": false, "summary": "Gets the center point of the box." }
+  ],
+  "methods": [
+    {
+      "name": "PointAt",
+      "static": false,
+      "overloads": [
+        {
+          "params": [...],
+          "return_type": "Rhino.Geometry.Point3d",
+          "is_generic": false,
+          "generic_args": [],
+          "summary": "Evaluates the Box at the given parameters...",
+          "returns": "the evaluated point"
+        }
+      ]
+    }
+  ],
+  "events": [{"name": "...", "handler_type": "...", "summary": "..."}],
+  "fields": [{"name": "...", "type": "...", "static": false, "is_literal": false, "summary": "..."}]
+}
+```
+
+**param オブジェクト**:
+
+```jsonc
+{
+  "name": "plane",
+  "type": "Rhino.Geometry.Plane",
+  "is_out": false,
+  "is_ref": false,
+  "has_default": false,
+  "default_value": null,
+  "summary": "the plane on which to base the box"
+}
+```
+
+**XML ドキュメントの取り込み (Phase B)**: ハンドラは型の所属アセンブリの
+隣にある `<AssemblyName>.xml` ファイル (例: `RhinoCommon.xml`) を自動で
+読み込み、各メンバの `<summary>` / `<param>` / `<returns>` を JSON の
+`summary` / param オブジェクトの `summary` / overload の `returns` に
+attach する。XML が存在しない、メンバ ID が見つからない場合は空文字列を
+返す（エラーにはならない）。RhinoCommon の XML は通常英語のみ同梱なので、
+日本語ロケールでも summary は英語で返る。詳細な lookup 規約は
+`docs/plugin-integration.md` の「XML doc lookup」を参照。
+
+#### 3.6.2 `rhino.search_types` の詳細
+
+`inspect_type` は FQN（完全修飾名）でしか型を解決しないため、AI が短い
+名前しか知らないときに **FQN を引くためのインデックス検索ハンドラ**。
+全 ロード済み アセンブリを `AppDomain.CurrentDomain.GetAssemblies()` で
+巡って、型名およびパブリックメンバ名に対して部分一致（case-insensitive）で
+ヒットを返す。
+
+**パラメータ**:
+
+| 名前 | 既定値 | 説明 |
+|------|--------|------|
+| `pattern` | 必須 | 部分一致される文字列。空はエラー (-32602) |
+| `scope` | `"all"` | `"all"` / `"types"` / `"members"` |
+| `assembly` | 未指定 | アセンブリ名を完全一致で指定するとそれのみ対象。未指定時は `Rhino*` / `RhinoCommon` / `RhinoCli*` に絞り込み |
+| `limit` | 50 | 最大マッチ数。超えた場合 `truncated: true` |
+
+**`type.IsVisible`** で外部から見えない internal 型は除外する。`MethodBase`
+の `IsSpecialName` (= property/event accessor) も除外。
+
+**結果スキーマ**:
+
+```jsonc
+{
+  "matches": [
+    { "kind": "type", "full_name": "Rhino.Geometry.Box", "member": null, "assembly": "RhinoCommon" },
+    { "kind": "method", "full_name": "Rhino.DocObjects.Tables.ObjectTable", "member": "AddBox", "assembly": "RhinoCommon" }
+  ],
+  "truncated": false
+}
+```
+
+`kind` は `"type" | "method" | "property" | "field" | "event" | "constructor" | "member"`。
+member kinds の `full_name` は **DeclaringType の FQN**、`member` は
+メンバ名。type kind の `member` は `null`。
+
+**典型ワークフロー**:
+
+1. `search_types AddBox` → `ObjectTable.AddBox` (method) と `Box` (type) などが返る
+2. AI が `inspect_type Rhino.DocObjects.Tables.ObjectTable` を呼んで overload を確認
+3. シグネチャに合わせて `run_python` でコードを書く
+
+#### 3.6.3 `rhino.decompile_method` の詳細
+
+`inspect_type` がメソッドの **インターフェース** を返すのに対し、本ハンドラは
+**実装** (IL を C# 復元) を返す。AI がメソッドの内部処理を読みたい場面
+（edge case 推測、helper の連鎖の確認、デバッグ）に使う。
+
+**パラメータ**:
+
+| 名前 | 必須 | 説明 |
+|------|------|------|
+| `type` | ✓ | FQN（例: `Rhino.Geometry.Box`） |
+| `method` | ✓ | メソッド名。コンストラクタは `.ctor` を指定 |
+| `signature` | — | overload を絞り込む。カンマ区切りの型名。FullName (`Rhino.Geometry.Point3d`) でも短縮形 (`Point3d`) でも可。`(Point3d, bool)` のような括弧表記も受理 |
+
+**結果スキーマ**:
+
+```jsonc
+{
+  "type": "Rhino.Geometry.Box",
+  "method": "ClosestPoint",
+  "signature": "(Rhino.Geometry.Point3d)",
+  "csharp": "public Point3d ClosestPoint(Point3d testPoint)\n{ ... }",
+  "summary": "Finds the closest point on or in the Box..."
+}
+```
+
+**エラー** (-32602 / `data.reason`):
+
+| reason | 状況 | hint |
+|--------|------|------|
+| `type_not_found` | FQN が解決できない | `search_types` で FQN を引け |
+| `type_not_in_assembly` | reflection では見つかったが decompiler の TypeSystem では見つからない (forwarder 等) | — |
+| `method_not_found` | 名前一致のメソッドなし | 名前のスペルを確認 |
+| `ambiguous_overload` | 複数 overload あり `signature` 未指定 | data.available に候補シグネチャ列挙 |
+| `no_overload_matches` | `signature` 指定したが一致なし | 候補シグネチャを `inspect_type` で確認 |
+
+Decompiler instance は assembly path 単位でキャッシュされる（初回ロードに
+RhinoCommon サイズで数百 MB を使うため）。プロセス停止までで GC されない
+点に注意。
+
+**Rust CLI の `--with-body` オプション**: `inspect-type --with-body
+<method-name>` を渡すと、CLI 側で `inspect_type` の結果を取得した後、
+指定メソッドの全 overload について自動で `decompile_method` を呼び、
+`methods[*].overloads[*].body` フィールドに C# を merge する。サーバ側
+ハンドラは分離維持。
+
+#### 3.6.4 `rhino.capture_viewport` の詳細
+
+AI が `run_script` / `run_python` で形状を変えた後、結果を視覚的に確認するためのキャプチャ
+ハンドラ。OS window capture (`rhino-cli screenshot`) と異なり、単一 viewport をピクセル単位
+の解像度で in-process キャプチャし、display mode / projection / camera を 1 RPC で指定できる。
+
+**Display mode は非破壊**: `RhinoView.CaptureToBitmap(Size, DisplayModeDescription)` overload
+を使うため、撮影前後で `viewport.DisplayMode` は変わらない。
+
+**projection / camera / target / zoom_extents は viewport を mutate する**: これらは
+viewport state そのものを示すので、撮影内容と等価。issue 方針として state は復元しない
+（呼び出し側が必要なら明示的に元に戻す）。
+
+**パラメータ**:
+
+| 名前 | 必須 | 説明 |
+|------|------|------|
+| `width` | ✓ | 出力 PNG 幅（ピクセル, > 0） |
+| `height` | ✓ | 出力 PNG 高さ（ピクセル, > 0） |
+| `viewport` | — | viewport 名。省略時は `doc.Views.ActiveView` |
+| `mode` | — | Display mode 名。`DisplayModeDescription.FindByName` で case-insensitive 一致（`Shaded` / `Rendered` / `Ghosted` / `X-Ray` / `Wireframe` / `Technical` / `Artistic` / `Pen` / `Arctic` / `Raytraced` / カスタム）。EnglishName で見つからない場合は LocalName を fallback |
+| `projection` | — | `"perspective"` または `"parallel"` |
+| `camera` | — | `[x, y, z]` の数値配列。`SetCameraLocation(p, false)` |
+| `target` | — | `[x, y, z]`。`SetCameraTarget(p, false)` |
+| `zoom_extents` | — | `true` で `ZoomExtents()`。`camera` / `target` と併用可能。適用順は `camera → target → zoom_extents` で、`ZoomExtents` はカメラ方向を保ったまま距離だけ調整（Dolly）するため、指定した角度のまま scene 全体をフレームに収められる |
+| `transparent_background` | — | `true` で `DisplayPipelineAttributes.FillMode = Transparent` を base attributes（mode 指定があればそこから、なければ現 DisplayMode から構築）に適用してから capture |
+
+**結果スキーマ**:
+
+```jsonc
+{
+  "status": "ok",
+  "png_base64": "iVBORw0KGgo...",
+  "format": "png",
+  "width": 1280,
+  "height": 720,
+  "viewport": "Perspective",
+  "mode_applied": "Shaded"
+}
+```
+
+**適用順序**: projection → camera → target → zoom_extents → `Redraw()` → `CaptureToBitmap(size, mode|attributes)`
+
+**エラー** (-32602 / data.field):
+
+| field | 状況 |
+|-------|------|
+| `width\|height` | 数値以外、または `<= 0` |
+| `viewport` | `doc.Views.Find(name, false)` で解決失敗。`data.available` に既存名リスト |
+| `mode` | EnglishName / LocalName いずれにも一致せず。`data.available` に候補リスト |
+| `projection` | `"perspective"` / `"parallel"` 以外 |
+| `camera` / `target` | 3 要素の数値配列でない |
+| `camera` / `target` | 3 要素の数値配列でない |
+
+**`rhino-cli screenshot` との使い分け**:
+
+- `screenshot`: macOS `screencapture` で Rhino アプリ全体（4 viewport + toolbar + panels）を撮る。プラグイン不要、UI 全体の見た目を確認する用途
+- `capture_viewport`: in-process `CaptureToBitmap`。単一 viewport を指定 mode / camera / projection で。プラグイン経由、AI が結果検証する用途
+
+#### 3.6.5 `rhino.execute_in_panel_webview` の詳細
+
+Eto WebView を使う panel plugin（AICmdHub, Lattice 等）を AI が自律デバッグするための JS 実行ハンドラ。private field を reflection で抜くお決まりパターン（`GetField("_webView", BindingFlags.NonPublic | BindingFlags.Instance)` 等）を置き換える。
+
+**境界ポリシー的位置付け**: `run_python` で同等のことは可能だが、(1) `Rhino.UI.Panels` への型付きアクセス、(2) Eto control 木の再帰探索、(3) UI thread invocation の三点が Python 経由だと毎回ボイラープレートになり壊れやすい。「概念単位で 1 つ・構造化 I/O が意味を持つ・run_python での実装が困難」の三条件を満たすので handler 化した。
+
+**パラメータ**:
+
+| 名前 | 必須 | 説明 |
+|------|------|------|
+| `panel` | ✓ | パネル GUID（文字列）。`Guid.Parse` できる形式。対象 panel が 1 度も表示されたことがないと `Rhino.UI.Panels.GetPanel` が `null` を返すので、事前にパネルを開く必要がある |
+| `script` | ✓ | JavaScript 文字列。handler 側で `(function(){ try { var __v = (function(){ <USER> })(); return JSON.stringify({__ok:true, value: __v ?? null}); } catch (e) { return JSON.stringify({__ok:false, error: String(e), stack: e?.stack}); } })()` に wrap される。ユーザーは `return <expr>` を書けばよい。`return` 省略時は `value: null` |
+
+**結果スキーマ**:
+
+```jsonc
+// 成功
+{ "status": "ok", "value": <any JSON>, "panel_type": "AICmdHub.Panels.MainPanel" }
+
+// パネルが未表示 / GUID 不一致
+{ "status": "panel_not_found", "error": "...", "panel_type"?: "..." }
+
+// パネル内に WebView がない
+{ "status": "webview_not_found", "error": "...", "panel_type": "..." }
+
+// JS が throw / wrapper が parse できない
+{ "status": "execution_error", "error": "...", "stack"?: "...", "raw"?: "...", "panel_type"?: "..." }
+```
+
+**WebView 探索**: panel instance を `Eto.Forms.Control` にキャストし、`Container.Children` を depth-first で walk。最初に見つかった `Eto.Forms.WebView` を返す。1 panel に複数 WebView がある（Splitter で並べている）ケースは MVP では非対応で、最初の 1 つだけ。
+
+**戻り値 serialize**: WebView の `ExecuteScript` は string しか返さないため、wrapper 内で `JSON.stringify` し、handler 側で `JsonNode.Parse` して `value` フィールドにそのまま埋め込む。プリミティブ・配列・オブジェクトすべて自然に JSON で取れる。
+
+**典型 examples**:
+
+```bash
+# DOM readyState
+rhino-cli execute-panel-js F2A3B4C5-D6E7-8901-ABCD-EF0123456789 'return document.readyState'
+
+# 構造化された値
+rhino-cli execute-panel-js <GUID> 'return { title: document.title, url: location.href, elements: document.querySelectorAll("*").length }'
+
+# DOM 操作（side effect あり）
+rhino-cli execute-panel-js <GUID> 'document.querySelector("button.send").click(); return "clicked"'
+```
+
+**注意点**:
+
+- WebView の Web Inspector への接続は別問題。macOS Safari の "Develop > [Rhino process]" で web inspector を開きたい場合は、対象 WebView の native control `Inspectable` を別途立てる必要がある（このハンドラの責務外）
+- 同一 JS でも macOS WKWebView と Windows WebView2 で挙動が異なるケースがある（CSS / モダン JS の差異）。これは caller 側で吸収する
+
+**macOS 内部の async 待ち合わせ**: WKWebView の `EvaluateJavaScript` は非同期で、Eto の `WebView.ExecuteScript`（同期 overload）は Mac で `null` を返す。handler は `ExecuteScriptAsync` の `Task<string>` を、`Eto.Forms.Application.Instance.RunIteration()` で Eto run loop を pump しつつ完了を待つ。タイムアウトは 10 秒固定（超過時は `status: "execution_error"`）。pump 中も Rhino UI thread を握っているので、長時間ブロックする JS（無限ループ等）はそのまま Rhino を固める可能性がある — 短時間で完結する script を渡すこと。
+
+**対象パネルは事前に表示する**: `Rhino.UI.Panels.GetPanel(Guid)` は「一度も表示されたことがない panel に対しては `null` を返す」仕様。AI agent からは事前に `rhino-cli call rhino.run_python '{"source":"import Rhino, System\\nRhino.UI.Panels.OpenPanel(System.Guid(\"<GUID>\"))"}'` で開いておく。
+
+### 3.7 API 発見プレイブック (AI 向け)
+
+AI が `run_python` で RhinoCommon を呼ぶときは、推測で API を書いて失敗
+する前に **次の順で発見動作を取る**。すべての発見手段は rhino-cli 内蔵
+ハンドラで完結し、外部 MCP は不要。
+
+| 順 | やること | 使うハンドラ | 何が得られるか |
+|----|---------|--------------|---------------|
+| 1 | 短い名前から FQN を引く | `rhino.search_types` | `Box` → `Rhino.Geometry.Box` などの FQN 候補 |
+| 2 | FQN から型の全貌を取る | `rhino.inspect_type` | constructor のオーバーロード、property の型、method のシグネチャ、XML doc `<summary>` |
+| 3 | 実装まで読みたい | `rhino.decompile_method` | メソッド本体の C# 復元（control flow / helper 呼び出し） |
+| 4 | 実機の object に動的に聞きたい | `rhino.run_python` で `dir()` / `getmembers()` | binding の小文字大文字、IronPython でのメンバ名 |
+| 5 | 試して失敗したら traceback を読む | `rhino.run_python` の error フィールド | `AttributeError`, `OverloadResolutionException` が次の試行のヒントになる |
+
+**典型シーケンス**:
+
+```
+ユーザー: 「箱を中央に作って」
+  ↓
+AI: search-types Box --scope types
+  → Rhino.Geometry.Box が見つかる
+  ↓
+AI: inspect-type Rhino.Geometry.Box
+  → constructor が 6 つ、(Plane, Interval, Interval, Interval) が
+    自然な形と分かる
+  ↓
+AI: search-types AddBox --scope members
+  → Rhino.DocObjects.Tables.ObjectTable.AddBox を発見
+  ↓
+AI: inspect-type Rhino.DocObjects.Tables.ObjectTable
+  → AddBox の overloads が (Box) / (Box, Attr) / (Box, Attr, History)
+    と判明
+  ↓
+AI: run_python で
+  bb = rg.BoundingBox(rg.Point3d(-5,-5,0), rg.Point3d(5,5,5))
+  sc.doc.Objects.AddBox(rg.Box(bb))
+```
+
+**境界**:
+
+- 1〜3 はサーバ往復が発生するので、`inspect_type` の結果は AI 側で
+  キャッシュして同じ型に対しては 1 度しか呼ばない
+- `decompile_method` は重い (初回 RhinoCommon ロードで数百 MB)。
+  シグネチャだけで足りる場合はスキップする
+- `run_python` の `dir()` は単体では method overload の引数型を返さない。
+  必ず先に `inspect_type` で構造を取る
 
 #### `rhino.run_python` の代表レシピ
 
@@ -210,7 +556,7 @@ null
   "result_expression": "deleted" }
 ```
 
-**ビューポート PNG 出力**
+**ビューポート PNG 出力（簡易版・通常は `rhino.capture_viewport` を使う）**
 ```json
 { "source": "import scriptcontext as sc, System.Drawing as sd, System.Drawing.Imaging as sdi\nbmp = sc.doc.Views.ActiveView.CaptureToBitmap(sd.Size(1280, 720))\nbmp.Save('/tmp/v.png', sdi.ImageFormat.Png)\nbmp.Dispose()",
   "result_expression": "True" }

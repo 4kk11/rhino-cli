@@ -1,6 +1,7 @@
 pub mod call;
 pub mod capabilities;
 pub mod doctor;
+pub mod document_state;
 pub mod list_methods;
 pub mod list_plugins;
 pub mod ping;

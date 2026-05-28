@@ -1,5 +1,6 @@
 use serde_json::json;
 
+use crate::commands::document_state::{self, DocumentState, ACTIVE_DOC_MISSING_WARNING};
 use crate::commands::{rhino, CommandContext};
 use crate::error::{CliError, Result};
 
@@ -29,6 +30,7 @@ pub fn run(ctx: &CommandContext, args: DoctorArgs) -> Result<()> {
                 .unwrap_or("unknown");
             println!("RhinoCliPlugin RPC: reachable at {}:{}", ctx.host, ctx.port);
             println!("Server: {server} {version}");
+            report_document_state(ctx);
             println!();
             println!("Next:");
             println!("  rhino-cli capabilities --port {}", ctx.port);
@@ -43,7 +45,7 @@ pub fn run(ctx: &CommandContext, args: DoctorArgs) -> Result<()> {
             println!();
             println!("Suggested:");
             println!("  rhino-cli plugin set-port {}", ctx.port);
-            println!("  rhino-cli launch --new-model");
+            println!("  rhino-cli launch");
             println!("  rhino-cli wait-ready --port {} --timeout 120", ctx.port);
             println!("  dotnet build plugin/RhinoCliPlugin/RhinoCliPlugin.csproj");
             println!();
@@ -53,5 +55,29 @@ pub fn run(ctx: &CommandContext, args: DoctorArgs) -> Result<()> {
                 other => Err(other),
             }
         }
+    }
+}
+
+fn report_document_state(ctx: &CommandContext) {
+    let client = ctx.client();
+    match document_state::probe(&client) {
+        Ok(Some(state)) => print_state(&state),
+        Ok(None) => {
+            println!("Document: state unknown (rhino.run_python returned no parseable result)");
+        }
+        Err(error) => {
+            println!("Document: probe failed ({error})");
+        }
+    }
+}
+
+fn print_state(state: &DocumentState) {
+    println!(
+        "Document: active_doc={} open_count={}",
+        state.active_doc, state.open_count
+    );
+    if state.active_doc_missing() {
+        println!();
+        println!("{ACTIVE_DOC_MISSING_WARNING}");
     }
 }

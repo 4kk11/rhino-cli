@@ -10,7 +10,9 @@ use rhino_cli::commands::capabilities::{CapabilitiesArgs, CapabilitiesFormat};
 use rhino_cli::commands::doctor::DoctorArgs;
 use rhino_cli::commands::rhino::{LaunchArgs, ScreenshotArgs, ShutdownArgs};
 use rhino_cli::commands::rhino_rpc::{
-    HistoryArgs, ListCommandsArgs, NewModelArgs, ProbeCommandArgs, RunScriptArgs,
+    CaptureViewportArgs, DecompileMethodArgs, ExecutePanelJsArgs, HistoryArgs, InspectTypeArgs,
+    InspectTypeWithBodyArgs, ListCommandsArgs, NewModelArgs, ProbeCommandArgs, RunScriptArgs,
+    SearchTypesArgs,
 };
 use rhino_cli::commands::CommandContext;
 use rhino_cli::error::{CliError, Result};
@@ -127,6 +129,84 @@ enum Commands {
         /// Rhino command name. English or localized names are both accepted.
         name: String,
     },
+    /// Inspect a .NET type loaded in the Rhino process via System.Reflection. Use the fully qualified name (e.g. Rhino.Geometry.Box).
+    InspectType {
+        /// Fully qualified type name.
+        name: String,
+        /// Member visibility filter: public | public_instance | public_static | non_public | all.
+        #[arg(long)]
+        binding: Option<String>,
+        /// Include inherited members instead of declared-only.
+        #[arg(long)]
+        include_inherited: bool,
+        /// Also decompile and merge the body of the named method into matching overloads. Repeatable.
+        #[arg(long = "with-body")]
+        with_body: Vec<String>,
+    },
+    /// Search loaded assemblies for types or members whose name contains the given substring.
+    SearchTypes {
+        /// Case-insensitive substring matched against type or member names.
+        pattern: String,
+        /// Match scope: all | types | members. Defaults to all.
+        #[arg(long)]
+        scope: Option<String>,
+        /// Restrict to a specific assembly name (otherwise Rhino* / RhinoCommon / RhinoCli* are searched).
+        #[arg(long)]
+        assembly: Option<String>,
+        /// Maximum number of matches (default 50).
+        #[arg(long)]
+        limit: Option<u32>,
+    },
+    /// Decompile a single .NET method's IL into C# via ICSharpCode.Decompiler.
+    DecompileMethod {
+        /// Fully qualified type name (e.g. Rhino.Geometry.Box).
+        type_name: String,
+        /// Method name. Use `.ctor` for constructors.
+        method: String,
+        /// Comma-separated parameter type names to pick a specific overload (FullName or short Name).
+        #[arg(long)]
+        signature: Option<String>,
+    },
+    /// Execute JavaScript inside the first Eto.Forms.WebView under a panel (resolved by GUID).
+    ExecutePanelJs {
+        /// Panel GUID (must have been displayed at least once so Rhino.UI.Panels.GetPanel returns its instance).
+        panel: String,
+        /// JavaScript source. Use `return ...` to send a value back; structured returns should call JSON.stringify(...) or return objects directly.
+        script: String,
+    },
+    /// Capture a single Rhino viewport to PNG via the plugin's CaptureToBitmap.
+    CaptureViewport {
+        /// Viewport name; defaults to the active view when omitted.
+        #[arg(long)]
+        viewport: Option<String>,
+        /// Output width in pixels.
+        #[arg(long)]
+        width: u32,
+        /// Output height in pixels.
+        #[arg(long)]
+        height: u32,
+        /// Display mode name (case-insensitive: shaded | rendered | ghosted | x-ray | wireframe | custom).
+        #[arg(long)]
+        mode: Option<String>,
+        /// Projection: perspective | parallel.
+        #[arg(long)]
+        projection: Option<String>,
+        /// Camera location as "X,Y,Z".
+        #[arg(long, allow_hyphen_values = true)]
+        camera: Option<String>,
+        /// Camera target as "X,Y,Z".
+        #[arg(long, allow_hyphen_values = true)]
+        target: Option<String>,
+        /// Zoom to extents before capture. Applied after --camera/--target when both are given.
+        #[arg(long)]
+        zoom_extents: bool,
+        /// Request a transparent background.
+        #[arg(long)]
+        transparent: bool,
+        /// Output PNG path. When omitted, the JSON-RPC result (with base64) is printed.
+        #[arg(long)]
+        out: Option<std::path::PathBuf>,
+    },
     /// Launch Rhino. Use `rhino-cli wait-ready --port <PORT>` afterwards to wait for the plugin.
     Launch {
         /// Rhino application name.
@@ -135,10 +215,10 @@ enum Commands {
         /// Ask Rhino to quit before launching.
         #[arg(long)]
         restart: bool,
-        /// Open a new model at startup instead of leaving Rhino's start window active.
+        /// Keep Rhino's start window (recent/template picker) instead of opening a new model. Note: while the start window is up Rhino.RhinoDoc.ActiveDoc is None, which can break panel/python operations from the plugin.
         #[arg(long)]
-        new_model: bool,
-        /// Optional Rhino command script passed via -runscript.
+        no_new_model: bool,
+        /// Optional Rhino command script passed via -runscript. Overrides the default _NoEcho startup script.
         #[arg(long)]
         script: Option<String>,
     },
@@ -266,17 +346,95 @@ fn run(cli: Cli) -> Result<()> {
         Commands::ProbeCommand { name } => {
             rhino_cli::commands::rhino_rpc::probe_command(&ctx, ProbeCommandArgs { name })
         }
+        Commands::InspectType {
+            name,
+            binding,
+            include_inherited,
+            with_body,
+        } => {
+            let inspect = InspectTypeArgs {
+                name,
+                binding,
+                include_inherited,
+            };
+            if with_body.is_empty() {
+                rhino_cli::commands::rhino_rpc::inspect_type(&ctx, inspect)
+            } else {
+                rhino_cli::commands::rhino_rpc::inspect_type_with_body(
+                    &ctx,
+                    InspectTypeWithBodyArgs { inspect, with_body },
+                )
+            }
+        }
+        Commands::SearchTypes {
+            pattern,
+            scope,
+            assembly,
+            limit,
+        } => rhino_cli::commands::rhino_rpc::search_types(
+            &ctx,
+            SearchTypesArgs {
+                pattern,
+                scope,
+                assembly,
+                limit,
+            },
+        ),
+        Commands::DecompileMethod {
+            type_name,
+            method,
+            signature,
+        } => rhino_cli::commands::rhino_rpc::decompile_method(
+            &ctx,
+            DecompileMethodArgs {
+                type_name,
+                method,
+                signature,
+            },
+        ),
+        Commands::ExecutePanelJs { panel, script } => {
+            rhino_cli::commands::rhino_rpc::execute_panel_js(
+                &ctx,
+                ExecutePanelJsArgs { panel, script },
+            )
+        }
+        Commands::CaptureViewport {
+            viewport,
+            width,
+            height,
+            mode,
+            projection,
+            camera,
+            target,
+            zoom_extents,
+            transparent,
+            out,
+        } => rhino_cli::commands::rhino_rpc::capture_viewport(
+            &ctx,
+            CaptureViewportArgs {
+                viewport,
+                width,
+                height,
+                mode,
+                projection,
+                camera,
+                target,
+                zoom_extents,
+                transparent,
+                out,
+            },
+        ),
         Commands::Launch {
             app,
             restart,
-            new_model,
+            no_new_model,
             script,
         } => rhino_cli::commands::rhino::launch(
             &ctx,
             LaunchArgs {
                 app,
                 restart,
-                new_model,
+                no_new_model,
                 script,
             },
         ),
@@ -319,7 +477,7 @@ fn print_error(error: &CliError, host: &str, port: u16) {
                 "Rhino is not reachable at {host}:{port}. Start Rhino and RhinoCliPlugin, then retry:"
             );
             eprintln!("  rhino-cli plugin set-port {port}");
-            eprintln!("  rhino-cli launch --new-model");
+            eprintln!("  rhino-cli launch");
             eprintln!("  rhino-cli wait-ready --port {port} --timeout 120");
             eprintln!();
             eprintln!(

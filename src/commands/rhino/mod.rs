@@ -13,7 +13,7 @@ const DEFAULT_SHUTDOWN_TIMEOUT_SECS: u64 = 30;
 pub struct LaunchArgs {
     pub app: String,
     pub restart: bool,
-    pub new_model: bool,
+    pub no_new_model: bool,
     pub script: Option<String>,
 }
 
@@ -37,7 +37,7 @@ impl Default for LaunchArgs {
         Self {
             app: DEFAULT_APP.to_string(),
             restart: false,
-            new_model: false,
+            no_new_model: false,
             script: None,
         }
     }
@@ -70,9 +70,9 @@ pub fn launch(ctx: &CommandContext, args: LaunchArgs) -> Result<()> {
     let app_running = platform::is_app_running(&args.app)?;
 
     if !args.restart && app_running {
-        if args.new_model || args.script.is_some() {
+        if args.script.is_some() {
             return Err(CliError::InvalidInput(
-                "Rhino is already running; use `rhino-cli launch --restart --new-model` to apply launch-time model opening, or `rhino-cli new-model` inside an existing modeling session."
+                "Rhino is already running; use `rhino-cli launch --restart --script ...` to apply launch-time scripts, or `rhino-cli run-script` inside an existing modeling session."
                     .to_string(),
             ));
         }
@@ -95,7 +95,7 @@ pub fn launch(ctx: &CommandContext, args: LaunchArgs) -> Result<()> {
     let startup_script = args
         .script
         .as_deref()
-        .or_else(|| args.new_model.then_some("_NoEcho"));
+        .or_else(|| (!args.no_new_model).then_some("_NoEcho"));
     platform::launch_app(&args.app, startup_script)
 }
 

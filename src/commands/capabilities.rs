@@ -90,7 +90,7 @@ fn print_agent(ctx: &CommandContext, result: &Value) -> Result<()> {
         ctx.port
     );
     println!(
-        "- Open Rhino to a modeling window: `rhino-cli launch --new-model --port {} --timeout 120`",
+        "- Open Rhino to a modeling window: `rhino-cli launch` then `rhino-cli wait-ready --port {} --timeout 120`",
         ctx.port
     );
     println!(

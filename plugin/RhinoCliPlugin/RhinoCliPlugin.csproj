@@ -22,9 +22,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="7.0.0" />
     <ProjectReference Include="../../server/RhinoCli.Server/RhinoCli.Server.csproj" />
     <Reference Include="RhinoCommon">
       <HintPath>$(RhinoCommonHintPath)</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Eto">
+      <HintPath>/Applications/Rhino 8.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources/Eto.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Rhino.UI">
+      <HintPath>/Applications/Rhino 8.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources/Rhino.UI.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

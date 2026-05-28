@@ -6,4 +6,7 @@
     <AssemblyName>RhinoCli.Server</AssemblyName>
     <RootNamespace>RhinoCli.Server</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ICSharpCode.Decompiler" Version="10.0.1.8346" />
+  </ItemGroup>
 </Project>

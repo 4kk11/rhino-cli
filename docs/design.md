@@ -271,7 +271,7 @@ rhino-cli call <method> --param key=value [--param key=value ...]
 rhino-cli wait-ready [--timeout 30]
 ```
 
-サーバ起動を待つ。指定秒間 100ms 間隔で `ping` を試行。`--timeout` の既定は `--connect-timeout` ではなく専用に 30 秒。Rhino 起動直後の race 用。
+サーバ起動を待つ。指定秒間 100ms 間隔で `ping` を試行。`--timeout` の既定は `--connect-timeout` ではなく専用に 30 秒。Rhino 起動直後の race 用。ping 成功後に `rhino.run_python` で `Rhino.RhinoDoc.ActiveDoc` を 1 回だけ確認し、`None` のまま（典型的にはスタートウィンドウが残っていてプラグインのパネル / Python 経路が無音で失敗する状態）の場合は stderr に warning を出す（exit code は変えない）。`-q/--quiet` 指定時はこの追加チェックも抑制する。
 
 #### 4.2.6 `doctor`
 
@@ -279,7 +279,7 @@ rhino-cli wait-ready [--timeout 30]
 rhino-cli doctor [--app "Rhino 8"]
 ```
 
-Rhino アプリの起動状態と `RhinoCliPlugin` RPC 到達性を確認する。未起動・ポート不一致・プラグイン未ロードの切り分けに使う。これは「使える状態か」を見る診断コマンドで、handler の仕様は `capabilities` に集約する。
+Rhino アプリの起動状態と `RhinoCliPlugin` RPC 到達性を確認する。未起動・ポート不一致・プラグイン未ロードの切り分けに使う。これは「使える状態か」を見る診断コマンドで、handler の仕様は `capabilities` に集約する。RPC が reachable な場合は追加で `rhino.run_python` 経由で `ActiveDoc` / `OpenDocuments` の状態を 1 行で報告し、`ActiveDoc` が `None` のまま（plugin パネル / Python 経路が無音で失敗する状態。典型的にはスタートウィンドウが残っているケース）を検知した場合は警告を出す。
 
 #### 4.2.7 `capabilities`
 
@@ -292,10 +292,10 @@ rhino-cli capabilities [--method <METHOD>] [--format text|json|markdown|agent]
 #### 4.2.8 `launch`
 
 ```
-rhino-cli launch [--app "Rhino 8"] [--restart] [--new-model] [--script "<RUNSCRIPT>"]
+rhino-cli launch [--app "Rhino 8"] [--restart] [--no-new-model] [--script "<RUNSCRIPT>"]
 ```
 
-macOS / Windows native / WSL 上で Rhino を起動するだけのコマンド。port 概念は持たず、readiness 待ちもしない。RPC が応答するまで待つ必要がある場合は `rhino-cli wait-ready --port <PORT>` を別途呼ぶ。既に Rhino が起動済みの場合は no-op で成功する（起動時引数 `--new-model` / `--script` を要求された場合は `--restart` 併用を促すエラーを返す）。`--restart` は OS ネイティブの quit 経路（macOS: AppleScript, Windows/WSL: `taskkill /IM Rhino.exe`）で既存 Rhino を終了させてから起動し直す。`--new-model` は Rhino 起動画面を残さず新規モデルウィンドウまで開くため、起動時に harmless な `-runscript _NoEcho`（Windows では `/runscript=_NoEcho`）を渡す。`--script` は Rhino の `-runscript` 引数として渡す。Windows/WSL では Rhino.exe を `RHINO_CLI_RHINO_EXE` → `C:\Program Files\Rhino {N}\System\Rhino.exe` の順で探索する（`--app "Rhino 7"` 等でバージョン優先度を変更可能）。pure Linux はサポート対象外。
+macOS / Windows native / WSL 上で Rhino を起動するだけのコマンド。port 概念は持たず、readiness 待ちもしない。RPC が応答するまで待つ必要がある場合は `rhino-cli wait-ready --port <PORT>` を別途呼ぶ。既に Rhino が起動済みの場合は no-op で成功する（起動時引数 `--script` を要求された場合は `--restart` 併用を促すエラーを返す）。`--restart` は OS ネイティブの quit 経路（macOS: AppleScript, Windows/WSL: `taskkill /IM Rhino.exe`）で既存 Rhino を終了させてから起動し直す。デフォルトでは起動時に harmless な `-runscript _NoEcho`（Windows では `/runscript=_NoEcho`）を渡して新規モデルウィンドウまで開き、`Rhino.RhinoDoc.ActiveDoc` を即時確定させる。スタートウィンドウ（最近使ったモデル / テンプレート選択）を残したい場合のみ `--no-new-model` を指定する。スタートウィンドウが残っている間は `ActiveDoc` が `None` のままになり、プラグインのパネル / Python 経路が無音で失敗するため、`wait-ready` と `doctor` がこの状態を検知して警告する。`--script` を指定するとデフォルトのスタートアップスクリプトを上書きし、Rhino の `-runscript` 引数として渡す。Windows/WSL では Rhino.exe を `RHINO_CLI_RHINO_EXE` → `C:\Program Files\Rhino {N}\System\Rhino.exe` の順で探索する（`--app "Rhino 7"` 等でバージョン優先度を変更可能）。pure Linux はサポート対象外。
 
 bundled RhinoCliPlugin が listen するポートは `rhino-cli plugin set-port <PORT>` で事前に設定する（§4.2.9 参照）。サードパーティ plugin の port 設定はこの CLI のスコープ外で、各 plugin が自身の手段（env / 設定ファイル / ハードコード等）で解決する。
 
@@ -339,7 +339,7 @@ rhino-cli history --clear
 rhino-cli new-model [--template <3DM>]
 ```
 
-プラグイン側の `rhino.new_model` を呼び、Rhino の default template から新規モデルを作成する。`--template` 指定時はその `.3dm` をテンプレートとして使う。これは既に modeling session が開いている状態で追加の新規モデルを作るための RPC で、起動画面を越える用途には `launch --new-model` を使う。
+プラグイン側の `rhino.new_model` を呼び、Rhino の default template から新規モデルを作成する。`--template` 指定時はその `.3dm` をテンプレートとして使う。これは既に modeling session が開いている状態で追加の新規モデルを作るための RPC で、起動画面を越える用途には `launch`（デフォルトで `_NoEcho` を渡す）を使う。
 
 #### 4.2.14 `list-commands` / `probe-command`
 
@@ -355,13 +355,91 @@ AI agent の使い分け:
 - `probe-command` で実機の最初のプロンプト・オプションを動的取得する
 - 取得した option short code と座標 syntax (`x,y,z`) で `run-script` を組み立てて実行する
 
-#### 4.2.15 `screenshot`
+#### 4.2.15 `inspect-type`
+
+```
+rhino-cli inspect-type <FQN> [--binding <B>] [--include-inherited]
+```
+
+`rhino.inspect_type` を呼び、Rhino プロセスにロード済みの .NET 型を
+`System.Reflection` で内省して JSON で返す。出力は constructors / properties /
+methods（オーバーロードはグルーピング）/ events / fields の構造化情報。
+`run_python` で RhinoCommon を直接叩く前に、AI が constructor の引数型や
+property の static 性を確認するための **API 発見ハンドラ**。
+
+型解決は **FQN のみ**（`Rhino.Geometry.Box` 等）。末尾一致フォールバックは
+誤マッチ防止のため採用しない。短い名前から FQN を引きたい場合は将来追加する
+`search-types` を使う前提。`--binding` は `public` / `public_instance` /
+`public_static` / `non_public` / `all` から選択（既定 `public` =
+Public Instance + Public Static）。`--include-inherited` で親クラスのメンバも
+含める（既定 DeclaredOnly）。
+
+XML doc `<summary>` 取り込みは Phase B、メソッド body の C# 復元は Phase D
+で `decompile-method` として別ハンドラに追加予定。
+
+#### 4.2.16 `search-types`
+
+```
+rhino-cli search-types <PATTERN> [--scope all|types|members] [--assembly <NAME>] [--limit <N>]
+```
+
+`rhino.search_types` を呼び、ロード済みアセンブリから型名 / メンバ名の
+部分一致（case-insensitive）を返す。`inspect-type` が **FQN のみ**を
+受理する前提なので、AI が短い名前しか知らないときの **FQN 解決ステップ**
+として使う。
+
+デフォルト assembly フィルタは `Rhino*` / `RhinoCommon` / `RhinoCli*` の
+prefix。広げたい場合は `--assembly <NAME>` で完全一致指定。出力は
+`limit` (既定 50) で打ち切られ、超過時は `truncated: true`。
+
+`type.IsVisible` で internal 型は除外し、property/event accessor などの
+`IsSpecialName` メンバも除外する。
+
+典型ワークフロー: `search-types AddBox` → `Rhino.DocObjects.Tables.ObjectTable.AddBox`
+を発見 → `inspect-type Rhino.DocObjects.Tables.ObjectTable` で overload を確認 →
+`run-python` で実装。
+
+#### 4.2.17 `decompile-method`
+
+```
+rhino-cli decompile-method <TYPE_FQN> <METHOD> [--signature <SIG>]
+```
+
+`rhino.decompile_method` を呼び、ICSharpCode.Decompiler でメソッド本体の
+IL を C# 復元して返す。`inspect-type` がシグネチャ（インターフェース）
+だけを返すのに対し、これは **実装** を返す。AI がメソッドの内部処理を
+読みたい場面（edge case 推測、複雑な API のデバッグ）に使う。
+
+コンストラクタを decompile するときは `METHOD` に `.ctor` を指定。
+オーバーロードがあるときは `--signature` でカンマ区切りの型名で絞り込む。
+型名は FullName (`Rhino.Geometry.Point3d`) でも 短縮形 (`Point3d`) でも
+受理する。曖昧な指定は `-32602 / ambiguous_overload` で候補シグネチャの
+配列を返す。
+
+Decompiler は assembly path 単位でキャッシュされ、初回呼び出し時のみ
+RhinoCommon 全体の型システム構築のため数百 MB を確保する。プロセス停止
+までキャッシュは維持される。
+
+`inspect-type --with-body <METHOD>` は CLI 側のオプション合成で、
+`inspect_type` の結果に対し指定メソッドの全 overload について
+`decompile_method` を呼び、`methods[*].overloads[*].body` に C# を merge
+する。ハンドラ自体は分離維持。
+
+#### 4.2.18 `screenshot`
 
 ```
 rhino-cli screenshot [--app "Rhino 8"] [--out <PNG>] [--window-id <ID>] [--no-activate] [--no-shadow]
 ```
 
 **macOS のみ対応**（Windows / WSL は `PrintWindow`/`BitBlt` ベースの別タスクで実装予定）。Rhino アプリの前面ウィンドウを PNG に保存する。RPC サーバやプラグイン handler には依存しないため、Rhino が起動していれば `run-script` や `history` の結果と合わせて AI エージェントが視覚的にデバッグできる。`--out` 未指定時は `rhino-screenshot-<unix>.png` をカレントディレクトリに作る。`--no-shadow` は macOS のウィンドウ影を除外し、`--window-id` は既知の window id を直接指定する。実行端末には macOS の Screen Recording 権限が必要。Windows / WSL ターゲットでは明示エラーを返す。
+
+#### 4.2.19 `execute-panel-js`
+
+```
+rhino-cli execute-panel-js <PANEL_GUID> <SCRIPT>
+```
+
+`rhino.execute_in_panel_webview` の専用 CLI。GUID で `Rhino.UI.Panels.GetPanel` を引き、その Eto control 木から最初の `Eto.Forms.WebView` を見つけて JS を実行する。`<SCRIPT>` は IIFE wrap されるので `return <expr>` で値を返せる。戻り値は handler 側で `JSON.stringify` してから JSON.parse され、`{ status, value, panel_type }` で返る。AICmdHub / Lattice のような WebView panel plugin を、private field の reflection ハックなしで自律デバッグするための専用経路。詳細は `docs/protocol.md` §3.6.5。
 
 ### 4.3 終了コード
 
