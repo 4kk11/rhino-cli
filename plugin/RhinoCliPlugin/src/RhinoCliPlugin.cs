@@ -62,6 +62,11 @@ public sealed class RhinoCliPlugin : PlugIn
         object? result = null;
         Exception? error = null;
 
+        // RhinoApp.InvokeOnUiThread is fire-and-forget on Windows (it posts to
+        // the UI message queue and returns immediately), so the server thread
+        // must block until the handler has actually run. When already on the
+        // UI thread the action executes inline and the event is set before Wait.
+        using var completed = new ManualResetEventSlim(false);
         RhinoApp.InvokeOnUiThread(new Action(() =>
         {
             try
@@ -72,7 +77,12 @@ public sealed class RhinoCliPlugin : PlugIn
             {
                 error = ex;
             }
+            finally
+            {
+                completed.Set();
+            }
         }));
+        completed.Wait();
 
         if (error is not null)
         {
