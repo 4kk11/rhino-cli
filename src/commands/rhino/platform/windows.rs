@@ -18,7 +18,7 @@ pub fn launch_app(app: &str, script: Option<&str>) -> Result<()> {
 
     let mut command = Command::new(&exe);
     if let Some(script) = script {
-        command.arg(format!("/runscript={script}"));
+        push_runscript_arg(&mut command, script);
     }
 
     detach(&mut command);
@@ -97,6 +97,23 @@ pub fn capture_window(
     Err(CliError::Other(
         "Rhino window screenshot is not yet implemented on Windows.".to_string(),
     ))
+}
+
+// Rhino.exe parses its command line itself and only recognizes the documented
+// `/runscript="command sequence"` form. `Command::arg` would quote the whole
+// token (`"/runscript=..."`) once the script contains spaces, and Rhino then
+// silently ignores it — so emit the raw token with inner quotes on Windows.
+#[cfg(target_os = "windows")]
+fn push_runscript_arg(command: &mut Command, script: &str) {
+    use std::os::windows::process::CommandExt;
+    command.raw_arg(format!("/runscript=\"{script}\""));
+}
+
+#[cfg(not(target_os = "windows"))]
+fn push_runscript_arg(command: &mut Command, script: &str) {
+    // WSL: Windows interop rebuilds the command line from argv, which yields
+    // the whole-token quoting; keep .arg until raw control is needed there.
+    command.arg(format!("/runscript={script}"));
 }
 
 #[cfg(target_os = "windows")]
