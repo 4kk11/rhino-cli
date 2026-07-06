@@ -15,10 +15,14 @@
 
   <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
     <RhinoCommonHintPath Condition="'$(RhinoCommonHintPath)' == ''">C:\Program Files\Rhino 8\System\netcore\RhinoCommon.dll</RhinoCommonHintPath>
+    <EtoHintPath Condition="'$(EtoHintPath)' == ''">C:\Program Files\Rhino 8\System\Eto.dll</EtoHintPath>
+    <RhinoUiHintPath Condition="'$(RhinoUiHintPath)' == ''">C:\Program Files\Rhino 8\System\netcore\Rhino.UI.dll</RhinoUiHintPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(OS)' != 'Windows_NT'">
     <RhinoCommonHintPath Condition="'$(RhinoCommonHintPath)' == ''">/Applications/Rhino 8.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources/RhinoCommon.dll</RhinoCommonHintPath>
+    <EtoHintPath Condition="'$(EtoHintPath)' == ''">/Applications/Rhino 8.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources/Eto.dll</EtoHintPath>
+    <RhinoUiHintPath Condition="'$(RhinoUiHintPath)' == ''">/Applications/Rhino 8.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources/Rhino.UI.dll</RhinoUiHintPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,11 +33,11 @@
       <Private>false</Private>
     </Reference>
     <Reference Include="Eto">
-      <HintPath>/Applications/Rhino 8.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources/Eto.dll</HintPath>
+      <HintPath>$(EtoHintPath)</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Rhino.UI">
-      <HintPath>/Applications/Rhino 8.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources/Rhino.UI.dll</HintPath>
+      <HintPath>$(RhinoUiHintPath)</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
