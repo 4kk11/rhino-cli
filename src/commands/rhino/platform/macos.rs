@@ -1,188 +1,10 @@
-use std::path::PathBuf;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
-use crate::commands::CommandContext;
 use crate::error::{CliError, Result};
 
-const DEFAULT_APP: &str = "Rhino 8";
-const DEFAULT_SHUTDOWN_TIMEOUT_SECS: u64 = 30;
-#[cfg(target_os = "macos")]
 const MACOS_COMMAND_TIMEOUT_SECS: u64 = 15;
 
-#[derive(Clone, Debug)]
-pub struct LaunchArgs {
-    pub app: String,
-    pub restart: bool,
-    pub no_new_model: bool,
-    pub script: Option<String>,
-}
-
-#[derive(Clone, Debug)]
-pub struct ShutdownArgs {
-    pub app: String,
-    pub timeout: Duration,
-}
-
-#[derive(Clone, Debug)]
-pub struct ScreenshotArgs {
-    pub app: String,
-    pub out: Option<PathBuf>,
-    pub no_activate: bool,
-    pub window_id: Option<u64>,
-    pub no_shadow: bool,
-}
-
-impl Default for LaunchArgs {
-    fn default() -> Self {
-        Self {
-            app: DEFAULT_APP.to_string(),
-            restart: false,
-            no_new_model: false,
-            script: None,
-        }
-    }
-}
-
-impl Default for ShutdownArgs {
-    fn default() -> Self {
-        Self {
-            app: DEFAULT_APP.to_string(),
-            timeout: Duration::from_secs(DEFAULT_SHUTDOWN_TIMEOUT_SECS),
-        }
-    }
-}
-
-impl Default for ScreenshotArgs {
-    fn default() -> Self {
-        Self {
-            app: DEFAULT_APP.to_string(),
-            out: None,
-            no_activate: false,
-            window_id: None,
-            no_shadow: false,
-        }
-    }
-}
-
-pub fn launch(ctx: &CommandContext, args: LaunchArgs) -> Result<()> {
-    validate_app_name(&args.app)?;
-
-    let app_running = is_app_running(&args.app)?;
-
-    if !args.restart && app_running {
-        if args.script.is_some() {
-            return Err(CliError::InvalidInput(
-                "Rhino is already running; use `rhino-cli launch --restart --script ...` to apply launch-time scripts, or `rhino-cli run-script` inside an existing modeling session."
-                    .to_string(),
-            ));
-        }
-        if ctx.verbose && !ctx.quiet {
-            eprintln!("{} is already running", args.app);
-        }
-        return Ok(());
-    }
-
-    if args.restart && app_running {
-        shutdown(
-            ctx,
-            ShutdownArgs {
-                app: args.app.clone(),
-                timeout: Duration::from_secs(DEFAULT_SHUTDOWN_TIMEOUT_SECS),
-            },
-        )?;
-    }
-
-    let startup_script = args
-        .script
-        .as_deref()
-        .or_else(|| (!args.no_new_model).then_some("_NoEcho"));
-    launch_app(&args.app, startup_script)
-}
-
-pub fn shutdown(ctx: &CommandContext, args: ShutdownArgs) -> Result<()> {
-    validate_app_name(&args.app)?;
-
-    if !is_app_running(&args.app)? {
-        if ctx.verbose && !ctx.quiet {
-            eprintln!("{} is not running", args.app);
-        }
-        return Ok(());
-    }
-
-    request_quit(&args.app)?;
-    wait_until_not_running(&args.app, args.timeout)
-}
-
-pub fn screenshot(ctx: &CommandContext, args: ScreenshotArgs) -> Result<()> {
-    validate_app_name(&args.app)?;
-    let out = args.out.unwrap_or_else(default_screenshot_path);
-    if let Some(parent) = out.parent().filter(|parent| !parent.as_os_str().is_empty()) {
-        std::fs::create_dir_all(parent).map_err(|error| {
-            CliError::Other(format!(
-                "failed to create screenshot directory {}: {error}",
-                parent.display()
-            ))
-        })?;
-    }
-
-    capture_window(
-        &args.app,
-        &out,
-        args.window_id,
-        !args.no_activate,
-        args.no_shadow,
-    )?;
-
-    if !ctx.quiet {
-        println!("{}", out.display());
-    }
-    Ok(())
-}
-
-pub fn app_running(app: &str) -> Result<bool> {
-    validate_app_name(app)?;
-    is_app_running(app)
-}
-
-fn wait_until_not_running(app: &str, timeout: Duration) -> Result<()> {
-    let started = Instant::now();
-    let interval = Duration::from_millis(500);
-
-    while started.elapsed() < timeout {
-        if !is_app_running(app)? {
-            return Ok(());
-        }
-        std::thread::sleep(interval);
-    }
-
-    Err(CliError::Timeout(format!(
-        "Timed out waiting for {app} to quit. Close any save/discard prompt and retry."
-    )))
-}
-
-pub(crate) fn validate_app_name(app: &str) -> Result<()> {
-    if app.is_empty()
-        || !app
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == ' ' || c == '.' || c == '-')
-    {
-        return Err(CliError::InvalidInput(format!(
-            "invalid Rhino app name {app:?}; use letters, numbers, spaces, dots, and hyphens"
-        )));
-    }
-    Ok(())
-}
-
-fn default_screenshot_path() -> PathBuf {
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_secs())
-        .unwrap_or(0);
-    PathBuf::from(format!("rhino-screenshot-{timestamp}.png"))
-}
-
-#[cfg(target_os = "macos")]
-fn launch_app(app: &str, script: Option<&str>) -> Result<()> {
+pub fn launch_app(app: &str, script: Option<&str>) -> Result<()> {
     use std::process::Command;
 
     let mut command = Command::new("open");
@@ -204,8 +26,7 @@ fn launch_app(app: &str, script: Option<&str>) -> Result<()> {
     )))
 }
 
-#[cfg(target_os = "macos")]
-fn capture_window(
+pub fn capture_window(
     app: &str,
     out: &std::path::Path,
     window_id: Option<u64>,
@@ -255,20 +76,6 @@ fn capture_window(
     )))
 }
 
-#[cfg(not(target_os = "macos"))]
-fn capture_window(
-    _app: &str,
-    _out: &std::path::Path,
-    _window_id: Option<u64>,
-    _activate: bool,
-    _no_shadow: bool,
-) -> Result<()> {
-    Err(CliError::Other(
-        "Rhino window screenshot is currently only supported on macOS.".to_string(),
-    ))
-}
-
-#[cfg(target_os = "macos")]
 fn ensure_screen_capture_access() -> Result<()> {
     let access = core_graphics::access::ScreenCaptureAccess::default();
     if access.preflight() || access.request() {
@@ -280,7 +87,6 @@ fn ensure_screen_capture_access() -> Result<()> {
     ))
 }
 
-#[cfg(target_os = "macos")]
 fn app_window_id(app: &str, activate: bool) -> Result<u64> {
     if activate {
         activate_app(app)?;
@@ -290,7 +96,6 @@ fn app_window_id(app: &str, activate: bool) -> Result<u64> {
     visible_app_window_id(app)
 }
 
-#[cfg(target_os = "macos")]
 fn activate_app(app: &str) -> Result<()> {
     use std::process::Command;
 
@@ -312,7 +117,6 @@ fn activate_app(app: &str) -> Result<()> {
     )))
 }
 
-#[cfg(target_os = "macos")]
 fn visible_app_window_id(app: &str) -> Result<u64> {
     use core_foundation::array::CFArray;
     use core_foundation::base::{CFType, TCFType};
@@ -393,21 +197,12 @@ fn visible_app_window_id(app: &str) -> Result<u64> {
     )))
 }
 
-#[cfg(target_os = "macos")]
 fn owner_matches_app(owner: &str, app: &str) -> bool {
     owner == app
         || (app.starts_with("Rhino") && (owner == "Rhinoceros" || owner.starts_with("Rhino")))
 }
 
-#[cfg(not(target_os = "macos"))]
-fn launch_app(_app: &str, _script: Option<&str>) -> Result<()> {
-    Err(CliError::Other(
-        "Rhino launch is currently only supported on macOS.".to_string(),
-    ))
-}
-
-#[cfg(target_os = "macos")]
-fn request_quit(app: &str) -> Result<()> {
+pub fn request_quit(app: &str) -> Result<()> {
     let output = run_osascript(&format!("quit app \"{app}\""))
         .map_err(|error| CliError::Other(format!("failed to ask {app} to quit: {error}")))?;
     if output.status.success() {
@@ -420,15 +215,7 @@ fn request_quit(app: &str) -> Result<()> {
     )))
 }
 
-#[cfg(not(target_os = "macos"))]
-fn request_quit(_app: &str) -> Result<()> {
-    Err(CliError::Other(
-        "Rhino shutdown is currently only supported on macOS.".to_string(),
-    ))
-}
-
-#[cfg(target_os = "macos")]
-fn is_app_running(app: &str) -> Result<bool> {
+pub fn is_app_running(app: &str) -> Result<bool> {
     let output = run_osascript(&format!("application \"{app}\" is running"))
         .map_err(|error| CliError::Other(format!("failed to query {app} state: {error}")))?;
     if !output.status.success() {
@@ -447,14 +234,6 @@ fn is_app_running(app: &str) -> Result<bool> {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
-fn is_app_running(_app: &str) -> Result<bool> {
-    Err(CliError::Other(
-        "Rhino app state query is currently only supported on macOS.".to_string(),
-    ))
-}
-
-#[cfg(target_os = "macos")]
 fn run_osascript(script: &str) -> std::io::Result<std::process::Output> {
     let mut command = std::process::Command::new("osascript");
     command.args(["-e", script]);
@@ -464,7 +243,6 @@ fn run_osascript(script: &str) -> std::io::Result<std::process::Output> {
     )
 }
 
-#[cfg(target_os = "macos")]
 fn run_command_with_timeout(
     command: &mut std::process::Command,
     timeout: Duration,
@@ -494,7 +272,6 @@ fn run_command_with_timeout(
     }
 }
 
-#[cfg(target_os = "macos")]
 fn command_output_message(output: &std::process::Output) -> String {
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     if !stderr.is_empty() {
@@ -507,34 +284,4 @@ fn command_output_message(output: &std::process::Output) -> String {
     }
 
     output.status.to_string()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{default_screenshot_path, validate_app_name};
-
-    #[test]
-    fn app_name_allows_expected_rhino_names() {
-        validate_app_name("Rhino 8").unwrap();
-        validate_app_name("RhinoWIP").unwrap();
-        validate_app_name("Rhino 8.0-Test").unwrap();
-    }
-
-    #[test]
-    fn app_name_rejects_shell_metacharacters() {
-        assert!(validate_app_name("").is_err());
-        assert!(validate_app_name("Rhino 8; rm -rf /").is_err());
-        assert!(validate_app_name("Rhino \"8\"").is_err());
-    }
-
-    #[test]
-    fn default_screenshot_path_is_png() {
-        let path = default_screenshot_path();
-        assert_eq!(path.extension().and_then(|ext| ext.to_str()), Some("png"));
-        assert!(path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap()
-            .starts_with("rhino-screenshot-"));
-    }
 }

@@ -109,7 +109,15 @@ rhino-cli capture-viewport --width 1280 --height 720 --out /tmp/viewport.png --p
 rhino-cli shutdown
 ```
 
-The responsibilities are intentionally split: `launch` only starts the Rhino process, `plugin set-port` configures the bundled plugin's listening port, and `wait-ready` blocks until the RPC endpoint answers `system.ping`. Combine them rather than expecting any single command to do all three. By default `launch` opens a new modeling window at startup (via `-runscript _NoEcho`) so `RhinoDoc.ActiveDoc` is set immediately; pass `--no-new-model` only if you actually want Rhino's start window (recent/template picker), at the cost of `ActiveDoc` staying `None` until you dismiss it manually. `wait-ready` and `doctor` warn whenever `ActiveDoc` is `None` after the plugin becomes reachable.
+`launch` and `shutdown` automate Rhino on **macOS, Windows native, and WSL** (pure Linux is not supported because Rhino for Linux does not exist). The default app is `Rhino 8`; use `--app "RhinoWIP"` or `--app "Rhino 7"` when needed. The responsibilities are intentionally split: `launch` only starts the Rhino process, `plugin set-port` configures the bundled plugin's listening port, and `wait-ready` blocks until the RPC endpoint answers `system.ping`. Combine them rather than expecting any single command to do all three. By default `launch` opens a new modeling window at startup (via `-runscript _NoEcho`) so `RhinoDoc.ActiveDoc` is set immediately; pass `--no-new-model` only if you actually want Rhino's start window (recent/template picker), at the cost of `ActiveDoc` staying `None` until you dismiss it manually. `wait-ready` and `doctor` warn whenever `ActiveDoc` is `None` after the plugin becomes reachable. `launch --restart` asks Rhino to quit before relaunching. `launch --script "<Rhino command script>"` overrides the default `_NoEcho` startup script and is passed through as Rhino's `-runscript` argument.
+
+| OS | launch backend | shutdown backend | Rhino discovery |
+|----|----------------|------------------|-----------------|
+| macOS | `open -a "<app>"` | AppleScript `quit` | App bundle name |
+| Windows native | `Rhino.exe /runscript=...` (detached) | `taskkill /IM Rhino.exe` | `RHINO_CLI_RHINO_EXE` → `C:\Program Files\Rhino {N}\System\Rhino.exe` (8 → 7) |
+| WSL (Linux) | Same as Windows via `/mnt/c/...` | `taskkill.exe` via WSL interop | Same as Windows; `RHINO_CLI_RHINO_EXE` accepts both `C:\...` and `/mnt/c/...` |
+
+Override the Rhino executable explicitly with `RHINO_CLI_RHINO_EXE`, e.g. `RHINO_CLI_RHINO_EXE="C:\Program Files\Rhino 7\System\Rhino.exe" rhino-cli launch`. `--app "Rhino 7"` only changes the search-order preference; the env var pins one absolute path.
 
 ## CLI Subcommand Reference
 
